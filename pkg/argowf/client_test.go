@@ -3,11 +3,18 @@ package argowf_test
 import (
 	"testing"
 
+	"github.com/jarcoal/httpmock"
 	"github.com/sktelecom/tks-cluster-lcm/pkg/argowf"
 )
 
 func TestGetWorkflowTemplates(t *testing.T) {
-	cli, err := argowf.New("192.168.97.69", 30004, false, "")
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+
+	httpmock.RegisterResponder("GET", "http://localhost:30004/api/v1/workflow-templates/argo",
+		httpmock.NewStringResponder(200, `{"items":[{"metadata":{"name":"prepare-argocd","namespace":"argo"},"spec":{"arguments":{"parameters":[{"name":"user","value":"argo"}]}}}]}`))
+
+	cli, err := argowf.New("localhost", 30004, false, "")
 	if err != nil {
 		t.Errorf("an error was unexpected while initializing argowf client %s", err)
 	}
@@ -23,7 +30,13 @@ func TestGetWorkflowTemplates(t *testing.T) {
 }
 
 func TestSubmitWorkflowFromWftpl(t *testing.T) {
-	cli, err := argowf.New("192.168.97.69", 30004, false, "")
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+
+	httpmock.RegisterResponder("POST", "http://localhost:30004/api/v1/workflows/argo/submit",
+		httpmock.NewStringResponder(200, `{"metadata":{"name":"prepare-argocd-xxxx","namespace":"argo"}}`))
+
+	cli, err := argowf.New("localhost", 30004, false, "")
 	if err != nil {
 		t.Errorf("an error was unexpected while initializing argowf client %s", err)
 	}
