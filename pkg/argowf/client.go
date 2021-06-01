@@ -11,7 +11,7 @@ import (
 	"github.com/sktelecom/tks-contract/pkg/log"
 )
 
-// Client is 
+// Client is
 type Client struct {
 	client *http.Client
 	url    string
@@ -43,7 +43,7 @@ func (c Client) GetWorkflowTemplates(namespace string) (*GetWorkflowTemplatesRes
 	res, err := http.Get(fmt.Sprintf("%s/api/v1/workflow-templates/%s", c.url, namespace))
 	if err != nil && res.StatusCode != 200 {
 		log.Fatal("error from get workflow-templats return code: ", res.StatusCode)
-		return &GetWorkflowTemplatesResponse{}, err
+		return nil, err
 	}
 	defer func() {
 		if err := res.Body.Close(); err != nil {
@@ -58,7 +58,7 @@ func (c Client) GetWorkflowTemplates(namespace string) (*GetWorkflowTemplatesRes
 	wftplRes := GetWorkflowTemplatesResponse{}
 	if err := json.Unmarshal(body, &wftplRes); err != nil {
 		log.Error("an error was unexpected while parsing response from api /workflow template.")
-		return &GetWorkflowTemplatesResponse{}, err
+		return nil, err
 	}
 	return &wftplRes, nil
 }
@@ -73,7 +73,7 @@ func (c Client) SumbitWorkflowFromWftpl(wftplName, targetNamespace string,
 	}
 	reqBodyBytes, err := json.Marshal(reqBody)
 	if err != nil {
-		return &SubmitWorkflowResponse{},
+		return nil,
 			fmt.Errorf("an error was unexpected while marshaling request body")
 	}
 	buff := bytes.NewBuffer(reqBodyBytes)
@@ -83,7 +83,7 @@ func (c Client) SumbitWorkflowFromWftpl(wftplName, targetNamespace string,
 	if err != nil || res.StatusCode != 200 {
 		log.Fatal("error from post workflow. return code: ", res.StatusCode)
 		log.Fatal("error message ", err.Error())
-		return &SubmitWorkflowResponse{}, err
+		return nil, err
 	}
 	defer func() {
 		if err := res.Body.Close(); err != nil {
@@ -93,13 +93,13 @@ func (c Client) SumbitWorkflowFromWftpl(wftplName, targetNamespace string,
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return &SubmitWorkflowResponse{}, err
+		return nil, err
 	}
 
 	submitRes := SubmitWorkflowResponse{}
 	if err := json.Unmarshal(body, &submitRes); err != nil {
 		log.Error("an error was unexpected while parsing response from api /submit.")
-		return &SubmitWorkflowResponse{}, err
+		return nil, err
 	}
 	return &submitRes, nil
 }
