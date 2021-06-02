@@ -12,7 +12,6 @@ import (
 
 var (
 	port               int    = 9112
-	enableMockup       bool   = false
 	infoServiceAddress string = ""
 	infoServicePort    int    = 9111
 )

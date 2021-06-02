@@ -3,15 +3,8 @@ package main
 import (
 	"context"
 
-	"github.com/sktelecom/tks-contract/pkg/contract"
-	gc "github.com/sktelecom/tks-contract/pkg/grpc-client"
 	"github.com/sktelecom/tks-contract/pkg/log"
 	pb "github.com/sktelecom/tks-proto/pbgo"
-)
-
-var (
-	contractAccessor *contract.Accessor
-	infoClient       *gc.InfoClient
 )
 
 // CreateCluster creates a Kubernetes cluster and returns cluster id
