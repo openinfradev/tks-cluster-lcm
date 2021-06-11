@@ -66,10 +66,11 @@ func (c Client) GetWorkflowTemplates(namespace string) (*GetWorkflowTemplatesRes
 func (c Client) SumbitWorkflowFromWftpl(wftplName, targetNamespace string,
 	opts SubmitOptions, params []string) (*SubmitWorkflowResponse, error) {
 	reqBody := submitWorkflowRequestBody{
-		Namespace:    targetNamespace,
-		ResourceKind: "WorkflowTemplate",
-		ResourceName: wftplName,
-		Parameters:   params,
+		Namespace:     targetNamespace,
+		ResourceKind:  "WorkflowTemplate",
+		ResourceName:  wftplName,
+		Parameters:    params,
+		SubmitOptions: opts,
 	}
 	reqBodyBytes, err := json.Marshal(reqBody)
 	if err != nil {
