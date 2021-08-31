@@ -1,6 +1,10 @@
 FROM golang:1.16.3-stretch AS builder
 LABEL AUTHOR Seungkyu Ahn (seungkyua@gmail.com)
 
+ARG PRV_GITHUB_TOKEN
+RUN go env -w GOPRIVATE=github.com/openinfradev/tks-cluster-lcm
+RUN git config --global url."https://x-access-token:${PRV_GITHUB_TOKEN}@github.com".insteadOf "https://github.com"
+
 RUN mkdir -p /build
 WORKDIR /build
 
