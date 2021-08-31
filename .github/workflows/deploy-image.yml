@@ -1,8 +1,9 @@
 name: Create and publish a package
 on:
-  release:
-    types: [published]
   push:
+    branches:
+      - main
+  pull_request:
     branches:
       - main
 jobs:
@@ -18,4 +19,4 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
         registry: docker.pkg.github.com
         repository: ${{ github.repository }}/tks-cluster-lcm
-        tag_with_ref: true
+        tags: latest
