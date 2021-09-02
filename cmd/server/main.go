@@ -5,8 +5,8 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/sktelecom/tks-contract/pkg/log"
-	pb "github.com/sktelecom/tks-proto/pbgo"
+	"github.com/openinfradev/tks-contract/pkg/log"
+	pb "github.com/openinfradev/tks-proto/pbgo"
 	"google.golang.org/grpc"
 )
 

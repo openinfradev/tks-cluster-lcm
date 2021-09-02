@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/jarcoal/httpmock"
-	"github.com/sktelecom/tks-cluster-lcm/pkg/argowf"
+	"github.com/openinfradev/tks-cluster-lcm/pkg/argowf"
 )
 
 func TestGetWorkflowTemplates(t *testing.T) {
