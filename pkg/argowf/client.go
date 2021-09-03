@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/sktelecom/tks-contract/pkg/log"
+	"github.com/openinfradev/tks-contract/pkg/log"
 )
 
 // Client is

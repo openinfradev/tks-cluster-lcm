@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 
-	"github.com/sktelecom/tks-contract/pkg/log"
-	pb "github.com/sktelecom/tks-proto/pbgo"
+	"github.com/openinfradev/tks-contract/pkg/log"
+	pb "github.com/openinfradev/tks-proto/pbgo"
 )
 
 // CreateCluster creates a Kubernetes cluster and returns cluster id
@@ -27,20 +27,20 @@ func (s *server) ScaleCluster(ctx context.Context, in *pb.ScaleClusterRequest) (
 	}, nil
 }
 
-// InstallApps install apps, return a array of application id
-func (s *server) InstallApps(ctx context.Context, in *pb.InstallAppsRequest) (*pb.IDsResponse, error) {
-	log.Debug("Request 'InstallApps' for cluster ID:", in.GetClusterId())
-	log.Warn("Not Implemented gRPC API: 'InstallApps'")
+// InstallAppGroups install apps, return a array of application id
+func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRequest) (*pb.IDsResponse, error) {
+	log.Debug("Request 'InstallAppGroups' ")
+	log.Warn("Not Implemented gRPC API: 'InstallAppGroups'")
 	return &pb.IDsResponse{
 		Code:  pb.Code_UNIMPLEMENTED,
 		Error: nil,
 	}, nil
 }
 
-// UninstallApps uninstall apps
-func (s *server) UninstallApps(ctx context.Context, in *pb.UninstallAppsRequest) (*pb.SimpleResponse, error) {
-	log.Debug("Request 'UninstallApps' for cluster ID:", in.GetClusterId())
-	log.Warn("Not Implemented gRPC API: 'UninstallApps'")
+// UninstallAppGroups uninstall apps
+func (s *server) UninstallAppGroups(ctx context.Context, in *pb.UninstallAppGroupsRequest) (*pb.SimpleResponse, error) {
+	log.Debug("Request 'UninstallAppGroups'")
+	log.Warn("Not Implemented gRPC API: 'UninstallAppGroups'")
 	return &pb.SimpleResponse{
 		Code:  pb.Code_UNIMPLEMENTED,
 		Error: nil,
