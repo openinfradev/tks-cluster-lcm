@@ -57,19 +57,19 @@ func InitHandlers( contractAddress string, contractPort int, infoAddress string,
 }
 
 func ValidateCreateClusterRequest(in *pb.CreateClusterRequest) (err error) {
-  _, err := uuid.Parse(in.GetClusterId())
-  if _, err := uuid.Parse(in.GetClusterId()); err != nil {
-    log.Error( "Failed to validate contractId : ", err );
-    return errors.New("ContractId must have value ")
-  }
-  if _, err := uuid.Parse(in.GetCspId()); err != nil {
-    log.Error( "Failed to validate cspId : ", err );
-    return errors.New("CspId must have value ")
-  }
-  if in.GetName() == "" {
-    return errors.New("Name must have value ")
-  }
-  return nil
+	_, err := uuid.Parse(in.GetClusterId())
+	if _, err := uuid.Parse(in.GetClusterId()); err != nil {
+		log.Error( "Failed to validate contractId : ", err );
+		return errors.New("ContractId must have value ")
+	}
+	if _, err := uuid.Parse(in.GetCspId()); err != nil {
+		log.Error( "Failed to validate cspId : ", err );
+		return errors.New("CspId must have value ")
+	}
+	if in.GetName() == "" {
+		return errors.New("Name must have value ")
+	}
+	return nil
 }
 
 func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest) (*pb.IDResponse, error) {
@@ -78,12 +78,12 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 	// [TODO] validation refactoring
 	if err := ValidateCreateClusterRequest(in); err != nil {
 		if err != nil {
-	    return &pb.IDResponse {
+			return &pb.IDResponse {
 				Code: pb.Code_INVALID_ARGUMENT,
 				Error: &pb.Error{
 					Msg: fmt.Sprint(err),
 				},
-	    }, nil
+			}, nil
 		}
 	}
 
@@ -96,7 +96,7 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 				Error: &pb.Error{
 					Msg: fmt.Sprintf("Invalid contract Id %s", in.GetContractId()),
 				},
-	    }, nil
+			}, nil
 		}
 	}
 
@@ -104,12 +104,12 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 	if _, err := cspInfoClient.GetCSPInfo(ctx, &pb.IDRequest{ Id: in.GetCspId() }); err != nil {
 		if err != nil {
 			log.Error( "Failed to get csp info err : ", err )
-	    return &pb.IDResponse{
+			return &pb.IDResponse{
 				Code: pb.Code_NOT_FOUND,
 				Error: &pb.Error{
 					Msg: fmt.Sprintf("Invalid CSP Id %s", in.GetCspId()),
 				},
-	    }, nil
+			}, nil
 		}
 	}
 
@@ -120,7 +120,7 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 		res, err := argowfClient.GetWorkflows( nameSpace );
 		if err != nil {
 			log.Error( "failed to get argo workflows %s namespace. err : %s", nameSpace, err )
-	    return &pb.IDResponse{
+			return &pb.IDResponse{
 				Code: pb.Code_INTERNAL,
 				Error: &pb.Error{
 					Msg: fmt.Sprintf("Failed to get argo workflows : %s", err ),
@@ -137,12 +137,12 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 
 					// ContractId 에 대해, 현재 진행중인 워크플로우가 있다면 실패처리
 					if item.Status.Phase == "Running" {
-				    return &pb.IDResponse{
+						return &pb.IDResponse{
 							Code: pb.Code_INTERNAL,
 							Error: &pb.Error{
 								Msg: fmt.Sprintf("Already running workflow. contractId : %s", in.GetContractId() ),
 							},
-				    }, nil
+						}, nil
 					}
 				}
 			}
@@ -160,12 +160,12 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 		})
 		if err != nil {
 			log.Error( "Failed to get csp info err : ", err )
-	    return &pb.IDResponse{
-	      Code: pb.Code_INTERNAL,
-	      Error: &pb.Error{
-	        Msg: fmt.Sprintf("Invalid contract ID %s", in.GetContractId()),
-	      },
-	    }, nil
+			return &pb.IDResponse{
+				Code: pb.Code_INTERNAL,
+				Error: &pb.Error{
+					Msg: fmt.Sprintf("Invalid contract ID %s", in.GetContractId()),
+				},
+			}, nil
 		}
 		clusterId = res.Id
 	}
@@ -197,12 +197,12 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 		res, err := argowfClient.SumbitWorkflowFromWftpl( workflow, nameSpace, opts );
 		if err != nil {
 			log.Error( "failed to submit argo workflow %s template. err : %s", workflow, err )
-	    return &pb.IDResponse{
+			return &pb.IDResponse{
 				Code: pb.Code_INTERNAL,
 				Error: &pb.Error{
 					Msg: fmt.Sprintf("Failed to call argo workflow : %s", err ),
 				},
-	    }, nil
+			}, nil
 		}
 		log.Debug("submited workflow template :", res)
 	}
@@ -215,12 +215,12 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 		})
 		if err != nil {
 			log.Error( "Failed to update cluster status err : ", err )
-	    return &pb.IDResponse{
+			return &pb.IDResponse{
 	      Code: pb.Code_INTERNAL,
 	      Error: &pb.Error{
 	        Msg: fmt.Sprintf("Failed to update cluster status %s", err),
 	      },
-	    }, nil
+			}, nil
 		}
 		log.Debug("updated cluster status INSTALLING ", res)
 	}
