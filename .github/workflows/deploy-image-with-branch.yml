@@ -24,6 +24,6 @@ jobs:
       uses: docker/build-push-action@v2
       with:
         push: true
-        tags: seungkyua/tks-cluster-lcm:${{ github.head_ref }}
+        tags: seungkyua/tks-cluster-lcm:${{ github.sha }}
         build-args: |
           PRV_GITHUB_TOKEN=${{ secrets.PRV_GITHUB_TOKEN }}

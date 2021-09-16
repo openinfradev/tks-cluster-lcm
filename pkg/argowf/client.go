@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/openinfradev/tks-contract/pkg/log"
+	
 )
 
-// Client is
 type Client struct {
 	client *http.Client
 	url    string
@@ -39,10 +39,14 @@ func New(host string, port int, ssl bool, token string) (*Client, error) {
 	}, nil
 }
 
-func (c Client) GetWorkflowTemplates(namespace string) (*GetWorkflowTemplatesResponse, error) {
+func (c *Client) GetWorkflowTemplates(namespace string) (*GetWorkflowTemplatesResponse, error) {
 	res, err := http.Get(fmt.Sprintf("%s/api/v1/workflow-templates/%s", c.url, namespace))
-	if err != nil && res.StatusCode != 200 {
-		log.Fatal("error from get workflow-templats return code: ", res.StatusCode)
+	if err != nil || res == nil {
+		log.Error("error from get workflow-templats err: ", err)
+		return nil, err
+	}
+	if res.StatusCode != 200 {
+		log.Error("error from get workflow-templats return code: ", res.StatusCode)
 		return nil, err
 	}
 	defer func() {
@@ -55,6 +59,7 @@ func (c Client) GetWorkflowTemplates(namespace string) (*GetWorkflowTemplatesRes
 	if err != nil {
 		return nil, err
 	}
+
 	wftplRes := GetWorkflowTemplatesResponse{}
 	if err := json.Unmarshal(body, &wftplRes); err != nil {
 		log.Error("an error was unexpected while parsing response from api /workflow template.")
@@ -63,32 +68,69 @@ func (c Client) GetWorkflowTemplates(namespace string) (*GetWorkflowTemplatesRes
 	return &wftplRes, nil
 }
 
-func (c Client) SumbitWorkflowFromWftpl(wftplName, targetNamespace string,
-	opts SubmitOptions, params []string) (*SubmitWorkflowResponse, error) {
+func (c *Client) GetWorkflows(namespace string) (*GetWorkflowsResponse, error) {
+	res, err := http.Get(fmt.Sprintf("%s/api/v1/workflows/%s", c.url, namespace))
+	if err != nil || res == nil {
+		log.Error("error from get workflow-templats err: ", err)
+		return nil, err
+	}
+	if res.StatusCode != 200 {
+		log.Error("error from get workflow-templats return code: ", res.StatusCode)
+		return nil, err
+	}
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			log.Error("error closing http body")
+		}
+	}()
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	workflowsRes := GetWorkflowsResponse{}
+	if err := json.Unmarshal(body, &workflowsRes); err != nil {
+		log.Error("an error was unexpected while parsing response from api /workflow template.")
+		return nil, err
+	}
+
+	return &workflowsRes, nil
+}
+
+func (c *Client) SumbitWorkflowFromWftpl(wftplName, targetNamespace string, opts SubmitOptions) (*SubmitWorkflowResponse, error) {
 	reqBody := submitWorkflowRequestBody{
 		Namespace:     targetNamespace,
 		ResourceKind:  "WorkflowTemplate",
 		ResourceName:  wftplName,
-		Parameters:    params,
 		SubmitOptions: opts,
 	}
+	log.Debug( "SumbitWorkflowFromWftpl reqBody ", reqBody )
+
 	reqBodyBytes, err := json.Marshal(reqBody)
 	if err != nil {
 		return nil,
 			fmt.Errorf("an error was unexpected while marshaling request body")
 	}
 	buff := bytes.NewBuffer(reqBodyBytes)
-	res, err := http.Post(fmt.Sprintf("%s/api/v1/workflows/%s/submit", c.url, targetNamespace),
-		"application/json", buff)
+	
+	res, err := http.Post(fmt.Sprintf("%s/api/v1/workflows/%s/submit", c.url, targetNamespace), "application/json", buff)
 
-	if err != nil || res.StatusCode != 200 {
-		log.Fatal("error from post workflow. return code: ", res.StatusCode)
-		log.Fatal("error message ", err.Error())
+	// [TODO] timeout 처리
+	if err != nil || res == nil {
+		log.Error("error message ", err.Error())
 		return nil, err
 	}
+	if res.StatusCode != 200 {
+		log.Error("error from post workflow. return code: ", res.StatusCode)
+		return nil, err
+	}
+
 	defer func() {
-		if err := res.Body.Close(); err != nil {
-			log.Error("error closing http body")
+		if res != nil {
+			if err := res.Body.Close(); err != nil {
+				log.Error("error closing http body")
+			}
 		}
 	}()
 
