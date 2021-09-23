@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"time"
+	"errors"
 
 	"github.com/openinfradev/tks-contract/pkg/log"
 	
@@ -145,4 +146,28 @@ func (c *Client) SumbitWorkflowFromWftpl(wftplName, targetNamespace string, opts
 		return nil, err
 	}
 	return &submitRes, nil
+}
+
+func (c *Client) IsRunningWorkflowByContractId(nameSpace string, contractId string) (error) {
+	res, err := c.GetWorkflows( nameSpace );
+	if err != nil {
+		log.Error( "failed to get argo workflows %s namespace. err : %s", nameSpace, err )
+		return err
+	}
+	
+	for _, item := range res.Items {
+		for j, arg := range item.Spec.Args.Parameters {
+			log.Debug(fmt.Sprintf("%d) workflow arg name: %s:%s", j, arg.Name, arg.Value))
+			if arg.Name == "contract_id" && arg.Value == contractId {
+				log.Debug( "item.Status.Phase ", item.Status.Phase )
+				log.Debug( "item.Status.Message ", item.Status.Message )
+
+				if item.Status.Phase == "Running" {
+					return errors.New("Existed running workflow ")
+				}
+			}
+		}
+	}
+
+	return nil
 }

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"errors"
-	"uuid"
 
+	"github.com/google/uuid"
 	"github.com/openinfradev/tks-contract/pkg/log"
 	"github.com/openinfradev/tks-cluster-lcm/pkg/argowf"
 
@@ -57,8 +57,7 @@ func InitHandlers( contractAddress string, contractPort int, infoAddress string,
 }
 
 func ValidateCreateClusterRequest(in *pb.CreateClusterRequest) (err error) {
-	_, err := uuid.Parse(in.GetClusterId())
-	if _, err := uuid.Parse(in.GetClusterId()); err != nil {
+	if _, err := uuid.Parse(in.GetContractId()); err != nil {
 		log.Error( "Failed to validate contractId : ", err );
 		return errors.New("ContractId must have value ")
 	}
@@ -114,38 +113,16 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 	}
 
 	// check workflow
-	// [TODO] improve workflow validation
 	{
 		nameSpace := "argo"
-		res, err := argowfClient.GetWorkflows( nameSpace );
-		if err != nil {
-			log.Error( "failed to get argo workflows %s namespace. err : %s", nameSpace, err )
+		if err := argowfClient.IsRunningWorkflowByContractId(nameSpace, in.GetContractId()); err != nil {
+			log.Error(fmt.Sprintf("Already running workflow. contractId : %s", in.GetContractId()))
 			return &pb.IDResponse{
 				Code: pb.Code_INTERNAL,
 				Error: &pb.Error{
-					Msg: fmt.Sprintf("Failed to get argo workflows : %s", err ),
+					Msg: fmt.Sprintf("Already running workflow. contractId : %s", in.GetContractId() ),
 				},
-	    }, nil
-		}
-		
-		for _, item := range res.Items {
-			for j, arg := range item.Spec.Args.Parameters {
-				log.Debug(fmt.Sprintf("%d) workflow arg name: %s:%s", j, arg.Name, arg.Value))
-				if arg.Name == "contract_id" && arg.Value == in.GetContractId() {
-					log.Debug( "item.Status.Phase ", item.Status.Phase )
-					log.Debug( "item.Status.Message ", item.Status.Message )
-
-					// ContractId 에 대해, 현재 진행중인 워크플로우가 있다면 실패처리
-					if item.Status.Phase == "Running" {
-						return &pb.IDResponse{
-							Code: pb.Code_INTERNAL,
-							Error: &pb.Error{
-								Msg: fmt.Sprintf("Already running workflow. contractId : %s", in.GetContractId() ),
-							},
-						}, nil
-					}
-				}
-			}
+			}, nil
 		}
 	}
 
