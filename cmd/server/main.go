@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/openinfradev/tks-contract/pkg/log"
-	pb "github.com/openinfradev/tks-proto/pbgo"
+	pb "github.com/openinfradev/tks-proto/tks_pb"
 	"google.golang.org/grpc"
 )
 
