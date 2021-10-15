@@ -148,24 +148,17 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 			ContractId : in.GetContractId(),
 			CspId : "",
 		})
-		if err != nil {
-			log.Error( "Failed to get clusters : ", err )
-			return &pb.IDResponse{
-				Code: pb.Code_INTERNAL,
-				Error: &pb.Error{
-					Msg: fmt.Sprintf("Failed to get clusters by contractId : %s", in.GetContractId()),
-				},
-			}, nil
-		}
-		for _, cluster := range res.GetClusters() {
-			if cluster.GetStatus() == pb.ClusterStatus_INSTALLING {
-				log.Info( "Already existed installing workflow. cluster : ", cluster )
-				return &pb.IDResponse{
-					Code: pb.Code_ALREADY_EXISTS,
-					Error: &pb.Error{
-						Msg: fmt.Sprintf("Already existed installing workflow. : %s", cluster.GetName()),
-					},
-				}, nil
+		if err == nil {
+			for _, cluster := range res.GetClusters() {
+				if cluster.GetStatus() == pb.ClusterStatus_INSTALLING {
+					log.Info( "Already existed installing workflow. cluster : ", cluster )
+					return &pb.IDResponse{
+						Code: pb.Code_ALREADY_EXISTS,
+						Error: &pb.Error{
+							Msg: fmt.Sprintf("Already existed installing workflow. : %s", cluster.GetName()),
+						},
+					}, nil
+				}
 			}
 		}
 	}
