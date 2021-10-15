@@ -5,10 +5,9 @@ go 1.16
 require (
 	github.com/argoproj/argo-workflows/v3 v3.1.13
 	github.com/google/uuid v1.3.0
-	github.com/jarcoal/httpmock v1.0.8
 	github.com/openinfradev/tks-contract v0.1.1-0.20210928021110-fe2b666327cc
 	github.com/openinfradev/tks-info v0.0.0-20210928021400-117ed2408789
-	github.com/openinfradev/tks-proto v0.0.6-0.20210924020717-178698d59e9d
+	github.com/openinfradev/tks-proto v0.0.6-0.20211015003551-ed8f9541f40d
 	google.golang.org/grpc v1.41.0
 	k8s.io/apimachinery v0.19.6
 )
