@@ -134,7 +134,7 @@ func (c *Client) waitOnOne(ctx context.Context, wfName, namespace string, ignore
 		event, err := stream.Recv()
 		if err == io.EOF {
 			log.Debug("Re-establishing workflow watch")
-			stream, err = c.serviceClient.WatchWorkflows(ctx, req)
+			stream, _ = c.serviceClient.WatchWorkflows(ctx, req)
 			continue
 		}
 		if event == nil {

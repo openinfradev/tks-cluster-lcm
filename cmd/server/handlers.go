@@ -66,10 +66,10 @@ func InitHandlers( contractAddress string, contractPort int, infoAddress string,
 
 func ValidateCreateClusterRequest(in *pb.CreateClusterRequest) (err error) {
 	if _, err := uuid.Parse(in.GetContractId()); err != nil {
-		return errors.New( fmt.Sprintf("invalid contract ID %s", in.GetContractId()) )
+		return fmt.Errorf("invalid contract ID %s", in.GetContractId())
 	}
 	if _, err := uuid.Parse(in.GetCspId()); err != nil {
-		return errors.New( fmt.Sprintf("invalid CSP ID %s", in.GetCspId()) ) 
+		return fmt.Errorf("invalid CSP ID %s", in.GetCspId())  
 	}
 	if in.GetName() == "" {
 		return errors.New("Name must have value ")
@@ -228,15 +228,19 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 	}
 
 	// update status : INSTALLING
-	s.updateClusterStatus( ctx, clusterId, pb.ClusterStatus_INSTALLING )
+	if err := s.updateClusterStatus( ctx, clusterId, pb.ClusterStatus_INSTALLING ); err != nil {
+		log.Error("Failed to update cluster status : INSTALLING" )
+	}
 	
 
 	/******************************************************/
 	// FOR DEMO : DELETE BELOW
-	if( argowfClient.WaitWorkflows(ctx, nameSpace, []string{workflowName}, false, false) == false ){
+	if !argowfClient.WaitWorkflows(ctx, nameSpace, []string{workflowName}, false, false) {
 		log.Error("Failed to wait workflow ", workflowName)
 
-		s.updateClusterStatus( ctx, clusterId, pb.ClusterStatus_ERROR ); 
+		if err := s.updateClusterStatus( ctx, clusterId, pb.ClusterStatus_ERROR ); err != nil {
+			log.Error("Failed to update cluster status : INSTALLING" )
+		}
 				
 		return &pb.IDResponse{
 			Code: pb.Code_INTERNAL,
@@ -276,10 +280,12 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 		log.Info("submited workflow name : ", workflowName )
 	}
 
-	if( argowfClient.WaitWorkflows(ctx, nameSpace, []string{workflowName}, false, false) == false ) {
+	if !argowfClient.WaitWorkflows(ctx, nameSpace, []string{workflowName}, false, false) {
 		log.Error("Failed to wait workflow ", workflowName)
 
-		s.updateClusterStatus( ctx, clusterId, pb.ClusterStatus_ERROR )
+		if err := s.updateClusterStatus( ctx, clusterId, pb.ClusterStatus_ERROR ); err != nil {
+			log.Error("Failed to update cluster status : INSTALLING" )
+		}
 
 		return &pb.IDResponse{
 			Code: pb.Code_INTERNAL,
@@ -289,7 +295,9 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 		}, nil
 	}
 
-	s.updateClusterStatus( ctx, clusterId, pb.ClusterStatus_RUNNING )
+	if err := s.updateClusterStatus( ctx, clusterId, pb.ClusterStatus_RUNNING ); err != nil {
+		log.Error("Failed to update cluster status : INSTALLING" )
+	}
 	/******************************************************/
 
 
@@ -382,7 +390,7 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 		{
 			log.Debug( "appGroup.GetType() : ", appGroup.GetType() )
 			workflowTemplate := ""
-			parameters := []string{}
+			var parameters []string
 			switch appGroup.GetType() {
 				case pb.AppGroupType_LMA :
 					workflowTemplate = "tks-lma-federation"
@@ -430,7 +438,7 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 			}
 			log.Debug("submited workflow name :", workflowName)
 
-			if argowfClient.WaitWorkflows(ctx, "argo", []string{workflowName}, false, false) == false {
+			if !argowfClient.WaitWorkflows(ctx, "argo", []string{workflowName}, false, false){
 				log.Error( "Failed to execute workflow : ", workflowName)
 
 				return &pb.IDsResponse{
