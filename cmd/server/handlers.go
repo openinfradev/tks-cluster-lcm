@@ -24,44 +24,35 @@ var (
 )
 
 func InitHandlers( contractAddress string, contractPort int, infoAddress string, infoPort int, argoAddress string, argoPort int ) {
-	{
-		_client, err := argowf.New( argoAddress, argoPort );
-		if err != nil {
-			log.Fatal( "failed to create argowf client : ", err )
-		}
-		argowfClient = _client;
+	_client, err := argowf.New( argoAddress, argoPort );
+	if err != nil {
+		log.Fatal( "failed to create argowf client : ", err )
 	}
+	argowfClient = _client;
 
-	{
-		_contractClient, err := tksContractClient.GetContractClient(contractAddress, contractPort, "tks-cluster-lcm");
-		if err != nil {
-			log.Fatal( "failed to create contract client : ", err )
-		}
-		contractClient = _contractClient
+	_contractClient, err := tksContractClient.GetContractClient(contractAddress, contractPort, "tks-cluster-lcm");
+	if err != nil {
+		log.Fatal( "failed to create contract client : ", err )
 	}
+	contractClient = _contractClient
 
-	{
-		_cspInfoClient, err := tksInfoClient.GetCspInfoClient(infoAddress, infoPort, "tks-cluster-lcm");
-		if err != nil {
-			log.Fatal( "failed to create csp client : ", err )
-		}
-		cspInfoClient = _cspInfoClient
+	_cspInfoClient, err := tksInfoClient.GetCspInfoClient(infoAddress, infoPort, "tks-cluster-lcm");
+	if err != nil {
+		log.Fatal( "failed to create csp client : ", err )
 	}
+	cspInfoClient = _cspInfoClient
 
-	{
-		_clusterInfoClient, err := tksInfoClient.GetClusterInfoClient(infoAddress, infoPort, "tks-cluster-lcm");
-		if err != nil {
-			log.Fatal( "failed to create cluster client : ", err )
-		}
-		clusterInfoClient = _clusterInfoClient
+	_clusterInfoClient, err := tksInfoClient.GetClusterInfoClient(infoAddress, infoPort, "tks-cluster-lcm");
+	if err != nil {
+		log.Fatal( "failed to create cluster client : ", err )
 	}
-	{
-		_appInfoClient, err := tksInfoClient.GetAppInfoClient(infoAddress, infoPort, "tks-cluster-lcm");
-		if err != nil {
-			log.Fatal( "failed to create appinfo client : ", err )
-		}
-		appInfoClient = _appInfoClient
+	clusterInfoClient = _clusterInfoClient
+
+	_appInfoClient, err := tksInfoClient.GetAppInfoClient(infoAddress, infoPort, "tks-cluster-lcm");
+	if err != nil {
+		log.Fatal( "failed to create appinfo client : ", err )
 	}
+	appInfoClient = _appInfoClient
 }
 
 func ValidateCreateClusterRequest(in *pb.CreateClusterRequest) (err error) {
@@ -118,71 +109,65 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 	}
 
 	// check csp 
-	{
-		cspInfo, err := cspInfoClient.GetCSPInfo(ctx, &pb.IDRequest{ Id: in.GetCspId() })
-		if err != nil {
-			log.Error( "Failed to get csp info err : ", err )
-			return &pb.IDResponse{
-				Code: pb.Code_NOT_FOUND,
-				Error: &pb.Error{
-					Msg: fmt.Sprintf("Invalid CSP Id %s", in.GetCspId()),
-				},
-			}, nil
-		}
+	cspInfo, err := cspInfoClient.GetCSPInfo(ctx, &pb.IDRequest{ Id: in.GetCspId() })
+	if err != nil {
+		log.Error( "Failed to get csp info err : ", err )
+		return &pb.IDResponse{
+			Code: pb.Code_NOT_FOUND,
+			Error: &pb.Error{
+				Msg: fmt.Sprintf("Invalid CSP Id %s", in.GetCspId()),
+			},
+		}, nil
+	}
 
-		if cspInfo.GetContractId() != in.GetContractId() {
-			log.Error( "Invalid contractId by cspId : ", cspInfo.GetContractId() )
-			return &pb.IDResponse{
-				Code: pb.Code_NOT_FOUND,
-				Error: &pb.Error{
-					Msg: fmt.Sprintf("ContractId and CSP Id do not match. expected contractId : %s", cspInfo.GetContractId()),
-				},
-			}, nil
-		}
+	if cspInfo.GetContractId() != in.GetContractId() {
+		log.Error( "Invalid contractId by cspId : ", cspInfo.GetContractId() )
+		return &pb.IDResponse{
+			Code: pb.Code_NOT_FOUND,
+			Error: &pb.Error{
+				Msg: fmt.Sprintf("ContractId and CSP Id do not match. expected contractId : %s", cspInfo.GetContractId()),
+			},
+		}, nil
 	}
 
 	// check cluster
-	{
-		// Exactly one of those must be provided
-		res, err := clusterInfoClient.GetClusters(ctx, &pb.GetClustersRequest{
-			ContractId : in.GetContractId(),
-			CspId : "",
-		})
-		if err == nil {
-			for _, cluster := range res.GetClusters() {
-				if cluster.GetStatus() == pb.ClusterStatus_INSTALLING {
-					log.Info( "Already existed installing workflow. cluster : ", cluster )
-					return &pb.IDResponse{
-						Code: pb.Code_ALREADY_EXISTS,
-						Error: &pb.Error{
-							Msg: fmt.Sprintf("Already existed installing workflow. : %s", cluster.GetName()),
-						},
-					}, nil
-				}
+	// Exactly one of those must be provided
+	res, err := clusterInfoClient.GetClusters(ctx, &pb.GetClustersRequest{
+		ContractId : in.GetContractId(),
+		CspId : "",
+	})
+	if err == nil {
+		for _, cluster := range res.GetClusters() {
+			if cluster.GetStatus() == pb.ClusterStatus_INSTALLING {
+				log.Info( "Already existed installing workflow. cluster : ", cluster )
+				return &pb.IDResponse{
+					Code: pb.Code_ALREADY_EXISTS,
+					Error: &pb.Error{
+						Msg: fmt.Sprintf("Already existed installing workflow. : %s", cluster.GetName()),
+					},
+				}, nil
 			}
 		}
 	}
 
 	// create cluster info
 	clusterId := ""
-	{
-		res, err := clusterInfoClient.AddClusterInfo(ctx, &pb.AddClusterInfoRequest{
-			ContractId : in.GetContractId(),
-			CspId : in.GetCspId(),
-			Name : in.GetName(),
-			Conf : in.GetConf(),
-		})
-		if err != nil {
-			log.Error( "Failed to add cluster info. err : ", err )
-			return &pb.IDResponse{
-				Code: pb.Code_INTERNAL,
-				Error: &pb.Error{
-					Msg: fmt.Sprintf("Failed to add cluster info. err : %s", err),
-				},
-			}, nil
-		}
-		clusterId = res.Id
+	resAddClusterInfo, err := clusterInfoClient.AddClusterInfo(ctx, &pb.AddClusterInfoRequest{
+		ContractId : in.GetContractId(),
+		CspId : in.GetCspId(),
+		Name : in.GetName(),
+		Conf : in.GetConf(),
+	})
+	if err != nil {
+		log.Error( "Failed to add cluster info. err : ", err )
+		return &pb.IDResponse{
+			Code: pb.Code_INTERNAL,
+			Error: &pb.Error{
+				Msg: fmt.Sprintf("Failed to add cluster info. err : %s", err),
+			},
+		}, nil
 	}
+	clusterId = resAddClusterInfo.Id
 
 	log.Info( "Added cluster in tks-info. clusterId : ", clusterId )
 
@@ -190,35 +175,33 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 	// create usercluster
 	nameSpace := "argo"
 	workflowName := ""
-	{
-		workflow := "create-tks-usercluster"
-		git_account := "tks-management"
-		revision := "main"
-		tks_admin := "tks-admin"
-		app_name := "tks-cluster"
+	workflow := "create-tks-usercluster"
+	git_account := "tks-management"
+	revision := "main"
+	tks_admin := "tks-admin"
+	app_name := "tks-cluster"
 
-		parameters := []string{ 
-			"contract_id=" + in.GetContractId(), 
-			"cluster_id=" + clusterId,
-			"git_account=" + git_account,
-			"revision=" + revision,
-			"tks_admin=" + tks_admin,
-			"app_name=" + app_name,
-		};
+	parameters := []string{ 
+		"contract_id=" + in.GetContractId(), 
+		"cluster_id=" + clusterId,
+		"git_account=" + git_account,
+		"revision=" + revision,
+		"tks_admin=" + tks_admin,
+		"app_name=" + app_name,
+	};
 
-		_workflowName, err := argowfClient.SumbitWorkflowFromWftpl( ctx, workflow, nameSpace, parameters );
-		if err != nil {
-			log.Error( "failed to submit argo workflow template. err : ", err )
-			return &pb.IDResponse{
-				Code: pb.Code_INTERNAL,
-				Error: &pb.Error{
-					Msg: fmt.Sprintf("Failed to call argo workflow : %s", err ),
-				},
-			}, nil
-		}
-		workflowName = _workflowName
-		log.Debug("submited workflow name : ", workflowName )
+	_workflowName, err := argowfClient.SumbitWorkflowFromWftpl( ctx, workflow, nameSpace, parameters );
+	if err != nil {
+		log.Error( "failed to submit argo workflow template. err : ", err )
+		return &pb.IDResponse{
+			Code: pb.Code_INTERNAL,
+			Error: &pb.Error{
+				Msg: fmt.Sprintf("Failed to call argo workflow : %s", err ),
+			},
+		}, nil
 	}
+	workflowName = _workflowName
+	log.Debug("submited workflow name : ", workflowName )
 
 	// update status : INSTALLING
 	if err := s.updateClusterStatus( ctx, clusterId, pb.ClusterStatus_INSTALLING ); err != nil {
@@ -228,22 +211,22 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 
 	/******************************************************/
 	// FOR DEMO : DELETE BELOW
-	if !argowfClient.WaitWorkflows(ctx, nameSpace, []string{workflowName}, false, false) {
-		log.Error("Failed to wait workflow ", workflowName)
-
-		if err := s.updateClusterStatus( ctx, clusterId, pb.ClusterStatus_ERROR ); err != nil {
-			log.Error("Failed to update cluster status : INSTALLING" )
-		}
-				
-		return &pb.IDResponse{
-			Code: pb.Code_INTERNAL,
-			Error: &pb.Error{
-				Msg: fmt.Sprintf("Failed to call argo workflow : %s", workflowName ),
-			},
-		}, nil
-	}
-
 	{
+		if !argowfClient.WaitWorkflows(ctx, nameSpace, []string{workflowName}, false, false) {
+			log.Error("Failed to wait workflow ", workflowName)
+
+			if err := s.updateClusterStatus( ctx, clusterId, pb.ClusterStatus_ERROR ); err != nil {
+				log.Error("Failed to update cluster status : INSTALLING" )
+			}
+					
+			return &pb.IDResponse{
+				Code: pb.Code_INTERNAL,
+				Error: &pb.Error{
+					Msg: fmt.Sprintf("Failed to call argo workflow : %s", workflowName ),
+				},
+			}, nil
+		}
+
 		workflow := "setup-sealed-secrets-on-usercluster"
 		git_account := "tks-management"
 		revision := "main"
@@ -271,25 +254,25 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 		}
 		workflowName = _workflowName
 		log.Info("submited workflow name : ", workflowName )
-	}
 
-	if !argowfClient.WaitWorkflows(ctx, nameSpace, []string{workflowName}, false, false) {
-		log.Error("Failed to wait workflow ", workflowName)
+		if !argowfClient.WaitWorkflows(ctx, nameSpace, []string{workflowName}, false, false) {
+			log.Error("Failed to wait workflow ", workflowName)
 
-		if err := s.updateClusterStatus( ctx, clusterId, pb.ClusterStatus_ERROR ); err != nil {
-			log.Error("Failed to update cluster status : INSTALLING" )
+			if err := s.updateClusterStatus( ctx, clusterId, pb.ClusterStatus_ERROR ); err != nil {
+				log.Error("Failed to update cluster status : INSTALLING" )
+			}
+
+			return &pb.IDResponse{
+				Code: pb.Code_INTERNAL,
+				Error: &pb.Error{
+					Msg: fmt.Sprintf("Failed to call argo workflow : %s", workflowName ),
+				},
+			}, nil
 		}
 
-		return &pb.IDResponse{
-			Code: pb.Code_INTERNAL,
-			Error: &pb.Error{
-				Msg: fmt.Sprintf("Failed to call argo workflow : %s", workflowName ),
-			},
-		}, nil
-	}
-
-	if err := s.updateClusterStatus( ctx, clusterId, pb.ClusterStatus_RUNNING ); err != nil {
-		log.Error("Failed to update cluster status : INSTALLING" )
+		if err := s.updateClusterStatus( ctx, clusterId, pb.ClusterStatus_RUNNING ); err != nil {
+			log.Error("Failed to update cluster status : INSTALLING" )
+		}
 	}
 	/******************************************************/
 
