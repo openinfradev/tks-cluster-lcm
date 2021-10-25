@@ -174,7 +174,6 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 
 	// create usercluster
 	nameSpace := "argo"
-	workflowName := ""
 	workflow := "create-tks-usercluster"
 	git_account := "tks-management"
 	revision := "main"
@@ -190,7 +189,7 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 		"app_name=" + app_name,
 	};
 
-	_workflowName, err := argowfClient.SumbitWorkflowFromWftpl( ctx, workflow, nameSpace, parameters );
+	workflowName, err := argowfClient.SumbitWorkflowFromWftpl( ctx, workflow, nameSpace, parameters );
 	if err != nil {
 		log.Error( "failed to submit argo workflow template. err : ", err )
 		return &pb.IDResponse{
@@ -200,7 +199,6 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 			},
 		}, nil
 	}
-	workflowName = _workflowName
 	log.Debug("submited workflow name : ", workflowName )
 
 	// update status : INSTALLING
@@ -210,7 +208,8 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 	
 
 	/******************************************************/
-	// FOR DEMO : DELETE BELOW
+	// FOR DEMO : DELETE BELOW'
+	/*
 	{
 		if !argowfClient.WaitWorkflows(ctx, nameSpace, []string{workflowName}, false, false) {
 			log.Error("Failed to wait workflow ", workflowName)
@@ -274,6 +273,7 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 			log.Error("Failed to update cluster status : INSTALLING" )
 		}
 	}
+	*/
 	/******************************************************/
 
 
@@ -331,89 +331,84 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 		contractId := ""
 		
 		// Check Cluster
-		{
-			cluster, err := clusterInfoClient.GetCluster(ctx, &pb.GetClusterRequest{ ClusterId: clusterId, })
-			if err != nil {
-				log.Error( "Failed to get cluster info err : ", err )
-				continue;
-			}
-			if cluster == nil {
-				log.Error( "Failed to get cluster info : ", appGroup.GetClusterId() )
-				continue;
-			}
-			log.Debug( "cluster : ", cluster )
-			contractId = cluster.GetCluster().GetContractId()
+		cluster, err := clusterInfoClient.GetCluster(ctx, &pb.GetClusterRequest{ ClusterId: clusterId, })
+		if err != nil {
+			log.Error( "Failed to get cluster info err : ", err )
+			continue;
 		}
+		if cluster == nil {
+			log.Error( "Failed to get cluster info : ", appGroup.GetClusterId() )
+			continue;
+		}
+		log.Debug( "cluster : ", cluster )
+		contractId = cluster.GetCluster().GetContractId()
 		log.Debug( "contractId ", contractId )
 
 		// Create AppGoup
 		appGroupId := ""
-		{
-			res, err := appInfoClient.CreateAppGroup(ctx, &pb.CreateAppGroupRequest{
-				ClusterId: appGroup.GetClusterId(), 
-				AppGroup: appGroup,
-			})
-			if err != nil {
-				log.Error( "Failed to create app group info err : ", err )
-				continue;
-			}
-			appGroupId = res.GetId()
-			log.Debug( "appGroupId : ", appGroupId )
+		res, err := appInfoClient.CreateAppGroup(ctx, &pb.CreateAppGroupRequest{
+			ClusterId: appGroup.GetClusterId(), 
+			AppGroup: appGroup,
+		})
+		if err != nil {
+			log.Error( "Failed to create app group info err : ", err )
+			continue;
 		}
-
+		appGroupId = res.GetId()
+		log.Debug( "appGroupId : ", appGroupId )
 
 		// Call argo workflow template
-		{
-			log.Debug( "appGroup.GetType() : ", appGroup.GetType() )
-			workflowTemplate := ""
-			var parameters []string
-			switch appGroup.GetType() {
-				case pb.AppGroupType_LMA :
-					workflowTemplate = "tks-lma-federation"
-					gitToken := "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"
-					siteRepoUrl := "https://" + gitToken + "@github.com/tks-management/" + contractId
-					manifestRepoUrl := "https://github.com/tks-management/" + contractId + "-manifests"
-					tksInfoHost := "tks-info.tks.svc"
-					parameters = []string{ 
-						"site_name=" + clusterId, 
-						"app_group=" + "lma", 
-						"site_repo_url=" + siteRepoUrl,
-						"manifest_repo_url=" + manifestRepoUrl,
-						"revision=main",
-						"cluster_id=" + clusterId,
-						"app_group_id=" + appGroupId,
-						"tks_info_host=" + tksInfoHost,
-					};
+		log.Debug( "appGroup.GetType() : ", appGroup.GetType() )
+		workflowTemplate := ""
+		var parameters []string
+		switch appGroup.GetType() {
+			case pb.AppGroupType_LMA :
+				workflowTemplate = "tks-lma-federation"
+				gitToken := "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"
+				siteRepoUrl := "https://" + gitToken + "@github.com/tks-management/" + contractId
+				manifestRepoUrl := "https://github.com/tks-management/" + contractId + "-manifests"
+				tksInfoHost := "tks-info.tks.svc"
+				parameters = []string{ 
+					"site_name=" + clusterId, 
+					"app_group=" + "lma", 
+					"site_repo_url=" + siteRepoUrl,
+					"manifest_repo_url=" + manifestRepoUrl,
+					"revision=main",
+					"cluster_id=" + clusterId,
+					"app_group_id=" + appGroupId,
+					"tks_info_host=" + tksInfoHost,
+				};
 
-				case pb.AppGroupType_SERVICE_MESH : 
-					workflowTemplate = "tks-service-mesh"
-					manifestRepoUrl := "https://github.com/tks-management/" + contractId + "-manifests"
-					revision := "main"
-					parameters = []string{ 
-						"site_name=" + clusterId, 
-						"app_group=" + "service-mesh", 
-						"manifest_repo_url=" + manifestRepoUrl,
-						"revision=" + revision,
-					};
+			case pb.AppGroupType_SERVICE_MESH : 
+				workflowTemplate = "tks-service-mesh"
+				manifestRepoUrl := "https://github.com/tks-management/" + contractId + "-manifests"
+				revision := "main"
+				parameters = []string{ 
+					"site_name=" + clusterId, 
+					"app_group=" + "service-mesh", 
+					"manifest_repo_url=" + manifestRepoUrl,
+					"revision=" + revision,
+				};
 
-				default :
-					log.Error( "invalid appGroup type ", appGroup.GetType() )
-					continue
-			}
-			log.Debug( "workflowTemplate : ", workflowTemplate )
+			default :
+				log.Error( "invalid appGroup type ", appGroup.GetType() )
+				continue
+		}
+		log.Debug( "workflowTemplate : ", workflowTemplate )
 
-			workflowName, err := argowfClient.SumbitWorkflowFromWftpl( ctx, workflowTemplate, "argo", parameters );
-			if err != nil {
-				log.Error( "failed to submit argo workflow template. err : ", err )
-				return &pb.IDsResponse{
-					Code: pb.Code_INTERNAL,
-					Error: &pb.Error{
-						Msg: fmt.Sprintf("Failed to call argo workflow : %s", err ),
-					},
-				}, nil
-			}
-			log.Debug("submited workflow name :", workflowName)
+		workflowName, err := argowfClient.SumbitWorkflowFromWftpl( ctx, workflowTemplate, "argo", parameters );
+		if err != nil {
+			log.Error( "failed to submit argo workflow template. err : ", err )
+			return &pb.IDsResponse{
+				Code: pb.Code_INTERNAL,
+				Error: &pb.Error{
+					Msg: fmt.Sprintf("Failed to call argo workflow : %s", err ),
+				},
+			}, nil
+		}
+		log.Debug("submited workflow name :", workflowName)
 
+/*
 			if !argowfClient.WaitWorkflows(ctx, "argo", []string{workflowName}, false, false){
 				log.Error( "Failed to execute workflow : ", workflowName)
 
@@ -424,11 +419,10 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 					},
 				}, nil
 			}
-
-			appGroupIds = append(appGroupIds, appGroupId)
-		}
+*/
+		appGroupIds = append(appGroupIds, appGroupId)
 	}
-
+ 
 	log.Info("completed installation. appGroupIds : ", appGroupIds)
 
 	return &pb.IDsResponse{
