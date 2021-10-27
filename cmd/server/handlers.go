@@ -132,6 +132,7 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 
 	// check cluster
 	// Exactly one of those must be provided
+	/*
 	res, err := clusterInfoClient.GetClusters(ctx, &pb.GetClustersRequest{
 		ContractId : in.GetContractId(),
 		CspId : "",
@@ -149,6 +150,7 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 			}
 		}
 	}
+	*/
 
 	// create cluster info
 	clusterId := ""
@@ -421,6 +423,71 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 			}
 */
 		appGroupIds = append(appGroupIds, appGroupId)
+
+		// 아래의 workflow 는 App 설치시 한꺼번에 병렬로 실행한다.
+		if appGroup.GetType() == pb.AppGroupType_LMA {
+			{
+				workflowTemplate := "aws-infrastructure"
+				parameters := []string{ 
+					"cluster_id=" + clusterId, 
+				};
+				workflowName, err := argowfClient.SumbitWorkflowFromWftpl( ctx, workflowTemplate, "argo", parameters );
+				if err != nil {
+					log.Error( "failed to submit argo workflow template. err : ", err )
+					return &pb.IDsResponse{
+						Code: pb.Code_INTERNAL,
+						Error: &pb.Error{
+							Msg: fmt.Sprintf("Failed to call argo workflow : %s", err ),
+						},
+					}, nil
+				}
+				log.Debug("submited workflow name :", workflowName)
+			}
+			{
+				workflowTemplate := "setup-sealed-secrets-on-usercluster"
+				parameters := []string{ 
+					"contract_id=" + contractId, 
+					"cluster_id=" + clusterId,
+					"git_account=" + "tks-management",
+					"revision=" + "main",
+					"tks_admin=" + "tks_admin",
+					"app_group=" + "sealed-secrets",
+				};
+				workflowName, err := argowfClient.SumbitWorkflowFromWftpl( ctx, workflowTemplate, "argo", parameters );
+				if err != nil {
+					log.Error( "failed to submit argo workflow template. err : ", err )
+					return &pb.IDsResponse{
+						Code: pb.Code_INTERNAL,
+						Error: &pb.Error{
+							Msg: fmt.Sprintf("Failed to call argo workflow : %s", err ),
+						},
+					}, nil
+				}
+				log.Debug("submited workflow name :", workflowName)
+			}
+			{
+				workflowTemplate := "tks-install-ingress-controller"
+				parameters := []string{ 
+					"contract_id=" + contractId, 
+					"cluster_id=" + clusterId,
+					"git_account=" + "tks-management",
+					"revision=" + "main",
+					"tks_admin=" + "tks_admin",
+					"app_group=" + "tks-cluster",
+				};
+				workflowName, err := argowfClient.SumbitWorkflowFromWftpl( ctx, workflowTemplate, "argo", parameters );
+				if err != nil {
+					log.Error( "failed to submit argo workflow template. err : ", err )
+					return &pb.IDsResponse{
+						Code: pb.Code_INTERNAL,
+						Error: &pb.Error{
+							Msg: fmt.Sprintf("Failed to call argo workflow : %s", err ),
+						},
+					}, nil
+				}
+				log.Debug("submited workflow name :", workflowName)
+			}
+		}
 	}
  
 	log.Info("completed installation. appGroupIds : ", appGroupIds)
