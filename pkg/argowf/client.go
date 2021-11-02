@@ -1,106 +1,155 @@
 package argowf
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	"time"
+	"errors"
+	"sync"
+	"io"
+	"context"
 
 	"github.com/openinfradev/tks-contract/pkg/log"
+
+	apiclient "github.com/argoproj/argo-workflows/v3/pkg/apiclient"
+	workflowpkg "github.com/argoproj/argo-workflows/v3/pkg/apiclient/workflow"
+	wfv1 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
+	"google.golang.org/grpc/status"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/argoproj/argo-workflows/v3/util"
+	"google.golang.org/grpc/codes"
+
 )
 
-// Client is
 type Client struct {
-	client *http.Client
-	url    string
+	serviceClient workflowpkg.WorkflowServiceClient
 }
 
-// New
-func New(host string, port int, ssl bool, token string) (*Client, error) {
-	var baseUrl string
-	if ssl {
-		if token == "" {
-			return nil, fmt.Errorf("argo ssl enabled but token is empty.")
-		}
-		baseUrl = fmt.Sprintf("https://%s:%d", host, port)
-	} else {
-		baseUrl = fmt.Sprintf("http://%s:%d", host, port)
-	}
-	return &Client{
-		client: &http.Client{
-			Timeout: 30 * time.Second,
-			Transport: &http.Transport{
-				MaxIdleConns: 10,
-			},
+func New(host string, port int) (*Client, error) {
+	baseUrl := fmt.Sprintf("%s:%d", host, port)
+	opts := apiclient.Opts{
+		ArgoServerOpts: apiclient.ArgoServerOpts{
+			URL:                baseUrl,
+			Secure:             false,
+			InsecureSkipVerify: false,
+			HTTP1: true,
 		},
-		url: baseUrl,
+		AuthSupplier: func() string {
+			return ""
+		},
+	}
+	_, client, err := apiclient.NewClientFromOpts(opts)
+	if err != nil {
+		return nil, err
+	}
+	serviceClient := client.NewWorkflowServiceClient()
+
+	return &Client{
+		serviceClient: serviceClient,
 	}, nil
 }
 
-func (c Client) GetWorkflowTemplates(namespace string) (*GetWorkflowTemplatesResponse, error) {
-	res, err := http.Get(fmt.Sprintf("%s/api/v1/workflow-templates/%s", c.url, namespace))
-	if err != nil && res.StatusCode != 200 {
-		log.Fatal("error from get workflow-templats return code: ", res.StatusCode)
-		return nil, err
-	}
-	defer func() {
-		if err := res.Body.Close(); err != nil {
-			log.Error("error closing http body")
-		}
-	}()
 
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
-	wftplRes := GetWorkflowTemplatesResponse{}
-	if err := json.Unmarshal(body, &wftplRes); err != nil {
-		log.Error("an error was unexpected while parsing response from api /workflow template.")
-		return nil, err
-	}
-	return &wftplRes, nil
-}
 
-func (c Client) SumbitWorkflowFromWftpl(wftplName, targetNamespace string,
-	opts SubmitOptions, params []string) (*SubmitWorkflowResponse, error) {
-	reqBody := submitWorkflowRequestBody{
-		Namespace:     targetNamespace,
+func (c *Client) SumbitWorkflowFromWftpl(ctx context.Context, wftplName string, namespace string, parameters []string) (string, error) {
+	submitOpts := wfv1.SubmitOpts{}
+	submitOpts.Parameters = parameters
+
+	created, err := c.serviceClient.SubmitWorkflow(ctx, &workflowpkg.WorkflowSubmitRequest{
+		Namespace:     namespace,
 		ResourceKind:  "WorkflowTemplate",
 		ResourceName:  wftplName,
-		Parameters:    params,
-		SubmitOptions: opts,
-	}
-	reqBodyBytes, err := json.Marshal(reqBody)
-	if err != nil {
-		return nil,
-			fmt.Errorf("an error was unexpected while marshaling request body")
-	}
-	buff := bytes.NewBuffer(reqBodyBytes)
-	res, err := http.Post(fmt.Sprintf("%s/api/v1/workflows/%s/submit", c.url, targetNamespace),
-		"application/json", buff)
+		SubmitOptions: &submitOpts,
+	})
 
-	if err != nil || res.StatusCode != 200 {
-		log.Fatal("error from post workflow. return code: ", res.StatusCode)
-		log.Fatal("error message ", err.Error())
-		return nil, err
-	}
-	defer func() {
-		if err := res.Body.Close(); err != nil {
-			log.Error("error closing http body")
-		}
-	}()
-
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
+	if( err != nil ){
+		log.Error( "Failed to submit : err ", err )
+		return "", err
 	}
 
-	submitRes := SubmitWorkflowResponse{}
-	if err := json.Unmarshal(body, &submitRes); err != nil {
-		log.Error("an error was unexpected while parsing response from api /submit.")
-		return nil, err
-	}
-	return &submitRes, nil
+	log.Debug( "SumbitWorkflowFromWftpl created name : ", created.Name )
+
+	return created.Name, nil
 }
+
+func (c *Client) IsRunningWorkflowByContractId(ctx context.Context, nameSpace string, contractId string) (bool, error) {
+	wfList, err := c.serviceClient.ListWorkflows(ctx, &workflowpkg.WorkflowListRequest{
+		Namespace:   nameSpace,
+		ListOptions: &metav1.ListOptions{LabelSelector: "workflows.argoproj.io/phase in (Pending,Running)"},
+		Fields:      "items.metadata.name,items.spec",
+	})
+
+	if err != nil {
+		log.Error( "failed to get argo workflows namespace. err : ", err )
+		return false, err
+	}
+
+	for _, item := range wfList.Items {
+		log.Debug(item)
+		for _, arg := range item.Spec.Arguments.Parameters {
+			if arg.Name == "contract_id" && arg.Value.String() == contractId {
+				return true, errors.New("Existed running(pending) workflow")
+			}
+		}
+	}
+
+	return false, nil
+}
+
+func (c *Client) WaitWorkflows(ctx context.Context, namespace string, workflowNames []string, ignoreNotFound, quiet bool) bool {
+	log.Debug( "waiting workflowNames : ", workflowNames )
+
+	var wg sync.WaitGroup
+	wfSuccessStatus := true
+
+	for _, name := range workflowNames {
+		wg.Add(1)
+		go func(name string) {
+			if !c.waitOnOne(ctx, name, namespace, ignoreNotFound, quiet) {
+				wfSuccessStatus = false
+			}
+			wg.Done()
+		}(name)
+
+	}
+	wg.Wait()
+
+	return wfSuccessStatus
+}
+
+func (c *Client) waitOnOne(ctx context.Context, wfName, namespace string, ignoreNotFound, quiet bool) bool {
+	req := &workflowpkg.WatchWorkflowsRequest{
+		Namespace: namespace,
+		ListOptions: &metav1.ListOptions{
+			FieldSelector:   util.GenerateFieldSelectorFromWorkflowName(wfName),
+			ResourceVersion: "0",
+		},
+	}
+	stream, err := c.serviceClient.WatchWorkflows(ctx, req)
+	if err != nil {
+		if status.Code(err) == codes.NotFound && ignoreNotFound {
+			return true
+		}
+		return false
+	}
+	for {
+		event, err := stream.Recv()
+		if err == io.EOF {
+			log.Debug("Re-establishing workflow watch")
+			stream, _ = c.serviceClient.WatchWorkflows(ctx, req)
+			continue
+		}
+		if event == nil {
+			continue
+		}
+		wf := event.Object
+		if !wf.Status.FinishedAt.IsZero() {
+			if !quiet {
+				log.Info(fmt.Sprintf("%s %s at %v\n", wfName, wf.Status.Phase, wf.Status.FinishedAt))
+			}
+			if wf.Status.Phase == wfv1.WorkflowFailed || wf.Status.Phase == wfv1.WorkflowError {
+				return false
+			}
+			return true
+		}
+	}
+}
+
