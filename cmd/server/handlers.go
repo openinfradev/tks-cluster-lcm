@@ -427,7 +427,7 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 		// 아래의 workflow 는 App 설치시 한꺼번에 병렬로 실행한다.
 		if appGroup.GetType() == pb.AppGroupType_LMA {
 			{
-				workflowTemplate := "aws-infrastructure"
+				workflowTemplate := "cp-aws-infrastructure"
 				parameters := []string{ 
 					"cluster_id=" + clusterId, 
 				};
