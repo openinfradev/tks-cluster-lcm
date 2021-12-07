@@ -367,8 +367,8 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 			case pb.AppGroupType_LMA :
 				workflowTemplate = "tks-lma-federation"
 				gitToken := "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"
-				siteRepoUrl := "https://" + gitToken + "@github.com/tks-management/" + contractId
-				manifestRepoUrl := "https://github.com/tks-management/" + contractId + "-manifests"
+				siteRepoUrl := "https://" + gitToken + "@github.com/tks-management/" + clusterId
+				manifestRepoUrl := "https://github.com/tks-management/" + clusterId + "-manifests"
 				tksInfoHost := "tks-info.tks.svc"
 				parameters = []string{ 
 					"site_name=" + clusterId, 
@@ -383,7 +383,7 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 
 			case pb.AppGroupType_SERVICE_MESH : 
 				workflowTemplate = "tks-service-mesh"
-				manifestRepoUrl := "https://github.com/tks-management/" + contractId + "-manifests"
+				manifestRepoUrl := "https://github.com/tks-management/" + clusterId + "-manifests"
 				revision := "main"
 				parameters = []string{ 
 					"site_name=" + clusterId, 
