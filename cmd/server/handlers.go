@@ -176,19 +176,20 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 
 	// create usercluster
 	nameSpace := "argo"
-	workflow := "create-tks-usercluster"
-	git_account := "tks-management"
+	workflow := "create-tks-usercluster-refactor"
+	templateName := "template-std"
+	gitAccount := "tks-management"
 	revision := "main"
-	tks_admin := "tks-admin"
-	app_name := "tks-cluster"
+	manifestRepoUrl := "https://github.com/tks-management/" + clusterId + "-manifests"
 
 	parameters := []string{ 
 		"contract_id=" + in.GetContractId(), 
 		"cluster_id=" + clusterId,
-		"git_account=" + git_account,
+		"site_name=" + clusterId,
+		"template_name=" + templateName,
+		"git_account=" + gitAccount,
+		"manifest_repo_url=" + manifestRepoUrl,
 		"revision=" + revision,
-		"tks_admin=" + tks_admin,
-		"app_name=" + app_name,
 	};
 
 	workflowName, err := argowfClient.SumbitWorkflowFromWftpl( ctx, workflow, nameSpace, parameters );
