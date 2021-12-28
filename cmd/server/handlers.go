@@ -176,7 +176,7 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 
 	// create usercluster
 	nameSpace := "argo"
-	workflow := "create-tks-usercluster-refactor"
+	workflow := "create-tks-usercluster"
 	templateName := "template-std"
 	gitAccount := "tks-management"
 	revision := "main"
