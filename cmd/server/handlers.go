@@ -367,13 +367,13 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 		switch appGroup.GetType() {
 			case pb.AppGroupType_LMA :
 				workflowTemplate = "tks-lma-federation"
-				gitToken := "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"
+				gitToken := "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"	// [TODO] use secret
 				siteRepoUrl := "https://" + gitToken + "@github.com/tks-management/" + clusterId
 				manifestRepoUrl := "https://github.com/tks-management/" + clusterId + "-manifests"
 				tksInfoHost := "tks-info.tks.svc"
 				parameters = []string{ 
 					"site_name=" + clusterId, 
-					"app_group=" + "lma", 
+					"logging_component=" + "efk", 
 					"site_repo_url=" + siteRepoUrl,
 					"manifest_repo_url=" + manifestRepoUrl,
 					"revision=main",
@@ -468,13 +468,12 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 			}
 			{
 				workflowTemplate := "tks-install-ingress-controller"
+				manifestRepoUrl := "https://github.com/tks-management/" + clusterId + "-manifests"
 				parameters := []string{ 
-					"contract_id=" + contractId, 
-					"cluster_id=" + clusterId,
-					"git_account=" + "tks-management",
+					"site_name=" + clusterId,
+					"manifest_repo_url=" + manifestRepoUrl,
 					"revision=" + "main",
-					"tks_admin=" + "tks_admin",
-					"app_group=" + "tks-cluster",
+					//"app_prefix=" + "",
 				};
 				workflowName, err := argowfClient.SumbitWorkflowFromWftpl( ctx, workflowTemplate, "argo", parameters );
 				if err != nil {
