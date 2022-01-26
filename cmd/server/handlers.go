@@ -380,6 +380,7 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 					"cluster_id=" + clusterId,
 					"app_group_id=" + appGroupId,
 					"tks_info_host=" + tksInfoHost,
+					"app_group=" + "lma",
 				};
 
 			case pb.AppGroupType_SERVICE_MESH : 
