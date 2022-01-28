@@ -472,7 +472,6 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 					"site_name=" + clusterId,
 					"manifest_repo_url=" + manifestRepoUrl,
 					"revision=" + "main",
-					//"app_prefix=" + "",
 				};
 				workflowName, err := argowfClient.SumbitWorkflowFromWftpl( ctx, workflowTemplate, "argo", parameters );
 				if err != nil {
