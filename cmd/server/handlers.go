@@ -446,13 +446,11 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 			}
 			{
 				workflowTemplate := "setup-sealed-secrets-on-usercluster"
+				manifestRepoUrl := "https://github.com/tks-management/" + clusterId + "-manifests"
 				parameters := []string{ 
-					"contract_id=" + contractId, 
-					"cluster_id=" + clusterId,
-					"git_account=" + "tks-management",
+					"site_name=" + clusterId,
+					"manifest_repo_url=" + manifestRepoUrl,
 					"revision=" + "main",
-					"tks_admin=" + "tks_admin",
-					"app_group=" + "sealed-secrets",
 				};
 				workflowName, err := argowfClient.SumbitWorkflowFromWftpl( ctx, workflowTemplate, "argo", parameters );
 				if err != nil {
@@ -473,7 +471,6 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 					"site_name=" + clusterId,
 					"manifest_repo_url=" + manifestRepoUrl,
 					"revision=" + "main",
-					//"app_prefix=" + "",
 				};
 				workflowName, err := argowfClient.SumbitWorkflowFromWftpl( ctx, workflowTemplate, "argo", parameters );
 				if err != nil {
