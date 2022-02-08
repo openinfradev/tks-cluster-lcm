@@ -6,56 +6,53 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
-	"github.com/openinfradev/tks-contract/pkg/log"
-	"github.com/openinfradev/tks-cluster-lcm/pkg/argowf"
-
+	"github.com/openinfradev/tks-common/pkg/log"
+	"github.com/openinfradev/tks-common/pkg/argowf"
+	"github.com/openinfradev/tks-common/pkg/grpc_client"
 	pb "github.com/openinfradev/tks-proto/tks_pb"
-	tksContractClient "github.com/openinfradev/tks-contract/pkg/client"
-	tksInfoClient "github.com/openinfradev/tks-info/pkg/client"
 )
 
 var (
-	argowfClient *argowf.Client
-
+	argowfClient argowf.Client
 	contractClient pb.ContractServiceClient
 	cspInfoClient pb.CspInfoServiceClient
 	clusterInfoClient pb.ClusterInfoServiceClient
 	appInfoClient pb.AppInfoServiceClient
 )
 
+// 각 client lifecycle은 서버 종료시까지므로 close는 하지 않는다.
 func InitHandlers( contractAddress string, contractPort int, infoAddress string, infoPort int, argoAddress string, argoPort int ) {
-	_client, err := argowf.New( argoAddress, argoPort );
+	var err error
+
+	argowfClient, err = argowf.New( argoAddress, argoPort );
 	if err != nil {
 		log.Fatal( "failed to create argowf client : ", err )
 	}
-	argowfClient = _client;
 
-	_contractClient, err := tksContractClient.GetContractClient(contractAddress, contractPort, "tks-cluster-lcm");
+	_, contractClient, err = grpc_client.CreateContractClient(contractAddress, contractPort, "tks-cluster-lcm");
 	if err != nil {
 		log.Fatal( "failed to create contract client : ", err )
 	}
-	contractClient = _contractClient
 
-	_cspInfoClient, err := tksInfoClient.GetCspInfoClient(infoAddress, infoPort, "tks-cluster-lcm");
+	_, cspInfoClient, err = grpc_client.CreateCspInfoClient(infoAddress, infoPort, "tks-cluster-lcm")
 	if err != nil {
-		log.Fatal( "failed to create csp client : ", err )
+		log.Fatal( "failed to create cspinfo client : ", err )
 	}
-	cspInfoClient = _cspInfoClient
 
-	_clusterInfoClient, err := tksInfoClient.GetClusterInfoClient(infoAddress, infoPort, "tks-cluster-lcm");
+	_, clusterInfoClient, err = grpc_client.CreateClusterInfoClient(infoAddress, infoPort, "tks-cluster-lcm");
 	if err != nil {
 		log.Fatal( "failed to create cluster client : ", err )
 	}
-	clusterInfoClient = _clusterInfoClient
 
-	_appInfoClient, err := tksInfoClient.GetAppInfoClient(infoAddress, infoPort, "tks-cluster-lcm");
+	_, appInfoClient, err = grpc_client.CreateAppInfoClient(infoAddress, infoPort, "tks-cluster-lcm");
 	if err != nil {
 		log.Fatal( "failed to create appinfo client : ", err )
 	}
-	appInfoClient = _appInfoClient
+
+	log.Info( "All clients created successfully" )
 }
 
-func ValidateCreateClusterRequest(in *pb.CreateClusterRequest) (err error) {
+func validateCreateClusterRequest(in *pb.CreateClusterRequest) (err error) {
 	if _, err := uuid.Parse(in.GetContractId()); err != nil {
 		return fmt.Errorf("invalid contract ID %s", in.GetContractId())
 	}
@@ -68,7 +65,7 @@ func ValidateCreateClusterRequest(in *pb.CreateClusterRequest) (err error) {
 	return nil
 }
 
-func ValidateInstallAppGroupsRequest(in *pb.InstallAppGroupsRequest) (err error) {
+func validateInstallAppGroupsRequest(in *pb.InstallAppGroupsRequest) (err error) {
 	for _, appGroup := range in.GetAppGroups() {
 		if _, err := uuid.Parse(appGroup.GetClusterId()); err != nil {
 			log.Error( "Failed to validate clusterId : ", err );
@@ -88,7 +85,7 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 	log.Info("Request 'CreateCluster' for contractId : ", in.GetContractId())
 
 	// [TODO] validation refactoring
-	if err := ValidateCreateClusterRequest(in); err != nil {
+	if err := validateCreateClusterRequest(in); err != nil {
 		return &pb.IDResponse {
 			Code: pb.Code_INVALID_ARGUMENT,
 			Error: &pb.Error{
@@ -210,76 +207,6 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 	}
 	
 
-	/******************************************************/
-	// FOR DEMO : DELETE BELOW'
-	/*
-	{
-		if !argowfClient.WaitWorkflows(ctx, nameSpace, []string{workflowName}, false, false) {
-			log.Error("Failed to wait workflow ", workflowName)
-
-			if err := s.updateClusterStatus( ctx, clusterId, pb.ClusterStatus_ERROR ); err != nil {
-				log.Error("Failed to update cluster status : INSTALLING" )
-			}
-					
-			return &pb.IDResponse{
-				Code: pb.Code_INTERNAL,
-				Error: &pb.Error{
-					Msg: fmt.Sprintf("Failed to call argo workflow : %s", workflowName ),
-				},
-			}, nil
-		}
-
-		workflow := "setup-sealed-secrets-on-usercluster"
-		git_account := "tks-management"
-		revision := "main"
-		tks_admin := "tks-admin"
-		app_group := "sealed-secrets"
-
-		parameters := []string{ 
-			"contract_id=" + in.GetContractId(), 
-			"cluster_id=" + clusterId,
-			"git_account=" + git_account,
-			"revision=" + revision,
-			"tks_admin=" + tks_admin,
-			"app_group=" + app_group,
-		};
-
-		_workflowName, err := argowfClient.SumbitWorkflowFromWftpl( ctx, workflow, nameSpace, parameters );
-		if err != nil {
-			log.Error( "failed to submit argo workflow template. err : ", err )
-			return &pb.IDResponse{
-				Code: pb.Code_INTERNAL,
-				Error: &pb.Error{
-					Msg: fmt.Sprintf("Failed to call argo workflow : %s", err ),
-				},
-			}, nil
-		}
-		workflowName = _workflowName
-		log.Info("submited workflow name : ", workflowName )
-
-		if !argowfClient.WaitWorkflows(ctx, nameSpace, []string{workflowName}, false, false) {
-			log.Error("Failed to wait workflow ", workflowName)
-
-			if err := s.updateClusterStatus( ctx, clusterId, pb.ClusterStatus_ERROR ); err != nil {
-				log.Error("Failed to update cluster status : INSTALLING" )
-			}
-
-			return &pb.IDResponse{
-				Code: pb.Code_INTERNAL,
-				Error: &pb.Error{
-					Msg: fmt.Sprintf("Failed to call argo workflow : %s", workflowName ),
-				},
-			}, nil
-		}
-
-		if err := s.updateClusterStatus( ctx, clusterId, pb.ClusterStatus_RUNNING ); err != nil {
-			log.Error("Failed to update cluster status : INSTALLING" )
-		}
-	}
-	*/
-	/******************************************************/
-
-
 	log.Info("cluster successfully created. clusterId : ", clusterId );
 	return &pb.IDResponse{
 		Code:  pb.Code_OK_UNSPECIFIED,
@@ -312,12 +239,14 @@ func (s *server) ScaleCluster(ctx context.Context, in *pb.ScaleClusterRequest) (
 	}, nil
 }
 
+
 // InstallAppGroups install apps, return a array of application id
+// [TODO] ktkfree : array 방식의 설치를 단일 Application 설치로 변경해야 할 것 같다.
 func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRequest) (*pb.IDsResponse, error) {
 	log.Debug("Request 'InstallAppGroups' ")
 
 	// [TODO] validation refactoring
-	if err := ValidateInstallAppGroupsRequest(in); err != nil {
+	if err := validateInstallAppGroupsRequest(in); err != nil {
 		return &pb.IDsResponse {
 			Code: pb.Code_INVALID_ARGUMENT,
 			Error: &pb.Error{
@@ -380,7 +309,6 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 					"cluster_id=" + clusterId,
 					"app_group_id=" + appGroupId,
 					"tks_info_host=" + tksInfoHost,
-					"app_group=" + "lma",
 				};
 
 			case pb.AppGroupType_SERVICE_MESH : 
@@ -412,18 +340,6 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 		}
 		log.Debug("submited workflow name :", workflowName)
 
-/*
-			if !argowfClient.WaitWorkflows(ctx, "argo", []string{workflowName}, false, false){
-				log.Error( "Failed to execute workflow : ", workflowName)
-
-				return &pb.IDsResponse{
-					Code: pb.Code_INTERNAL,
-					Error: &pb.Error{
-						Msg: fmt.Sprintf("Failed to execute workflow : %s", workflowName ),
-					},
-				}, nil
-			}
-*/
 		appGroupIds = append(appGroupIds, appGroupId)
 
 		// 아래의 workflow 는 App 설치시 한꺼번에 병렬로 실행한다.
@@ -447,13 +363,11 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 			}
 			{
 				workflowTemplate := "setup-sealed-secrets-on-usercluster"
+				manifestRepoUrl := "https://github.com/tks-management/" + clusterId + "-manifests"
 				parameters := []string{ 
-					"contract_id=" + contractId, 
-					"cluster_id=" + clusterId,
-					"git_account=" + "tks-management",
+					"site_name=" + clusterId,
+					"manifest_repo_url=" + manifestRepoUrl,
 					"revision=" + "main",
-					"tks_admin=" + "tks_admin",
-					"app_group=" + "sealed-secrets",
 				};
 				workflowName, err := argowfClient.SumbitWorkflowFromWftpl( ctx, workflowTemplate, "argo", parameters );
 				if err != nil {
@@ -471,10 +385,9 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 				workflowTemplate := "tks-install-ingress-controller"
 				manifestRepoUrl := "https://github.com/tks-management/" + clusterId + "-manifests"
 				parameters := []string{ 
-					"site_name=" + clusterId,
 					"manifest_repo_url=" + manifestRepoUrl,
+					"site_name=" + clusterId,
 					"revision=" + "main",
-					//"app_prefix=" + "",
 				};
 				workflowName, err := argowfClient.SumbitWorkflowFromWftpl( ctx, workflowTemplate, "argo", parameters );
 				if err != nil {

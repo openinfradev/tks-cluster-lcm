@@ -5,7 +5,7 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/openinfradev/tks-contract/pkg/log"
+	"github.com/openinfradev/tks-common/pkg/log"
 	pb "github.com/openinfradev/tks-proto/tks_pb"
 	"google.golang.org/grpc"
 )
