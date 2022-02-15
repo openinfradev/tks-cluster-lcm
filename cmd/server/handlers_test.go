@@ -102,7 +102,7 @@ func TestCreateCluster(t *testing.T) {
 				mockContractClient *mocktks.MockContractServiceClient) {
 			},
 			checkResponse: func(req *pb.CreateClusterRequest, res *pb.IDResponse, err error) {
-				require.NoError(t, err)
+				require.Error(t, err)
 				require.Equal(t, res.Code, pb.Code_INVALID_ARGUMENT)
 			},
 		},
@@ -119,7 +119,7 @@ func TestCreateCluster(t *testing.T) {
 			},
 			checkResponse: func(req *pb.CreateClusterRequest, res *pb.IDResponse, err error) {
 				//log.Info( res )
-				require.NoError(t, err)
+				require.Error(t, err)
 				require.Equal(t, res.Code, pb.Code_INVALID_ARGUMENT)
 			},
 		},
@@ -137,7 +137,7 @@ func TestCreateCluster(t *testing.T) {
 			},
 			checkResponse: func(req *pb.CreateClusterRequest, res *pb.IDResponse, err error) {
 				//log.Info( res )
-				require.NoError(t, err)
+				require.Error(t, err)
 				require.Equal(t, res.Code, pb.Code_INVALID_ARGUMENT)
 			},
 		},
@@ -159,7 +159,7 @@ func TestCreateCluster(t *testing.T) {
 						}, errors.New("NOT FOUND CONTRACTID FROM TKS-CONTRACT"))
 			},
 			checkResponse: func(req *pb.CreateClusterRequest, res *pb.IDResponse, err error) {
-				require.NoError(t, err)
+				require.Error(t, err)
 				require.Equal(t, res.Code, pb.Code_NOT_FOUND)
 			},
 		},
@@ -219,7 +219,7 @@ func TestCreateCluster(t *testing.T) {
 						&pb.IDResponse{}, errors.New("FAILED TO ADD CLUSTER"))
 			},
 			checkResponse: func(req *pb.CreateClusterRequest, res *pb.IDResponse, err error) {
-				require.NoError(t, err)
+				require.Error(t, err)
 				require.Equal(t, res.Code, pb.Code_INTERNAL)
 
 			},
@@ -259,7 +259,7 @@ func TestCreateCluster(t *testing.T) {
 					Return("", errors.New("FAILED_TO_CALL_WORKFLOW"))
 			},
 			checkResponse: func(req *pb.CreateClusterRequest, res *pb.IDResponse, err error) {
-				require.NoError(t, err)
+				require.Error(t, err)
 				require.Equal(t, res.Code, pb.Code_INTERNAL)
 			},
 		},
@@ -364,7 +364,7 @@ func TestInstallAppGroups(t *testing.T) {
 				mockClusterInfoClient *mocktks.MockClusterInfoServiceClient) {
 			},
 			checkResponse: func(req *pb.InstallAppGroupsRequest, res *pb.IDsResponse, err error) {
-				require.NoError(t, err)
+				require.Error(t, err)
 				require.Equal(t, res.Code, pb.Code_INVALID_ARGUMENT)
 			},
 		},
@@ -383,7 +383,7 @@ func TestInstallAppGroups(t *testing.T) {
 				mockClusterInfoClient *mocktks.MockClusterInfoServiceClient) {
 			},
 			checkResponse: func(req *pb.InstallAppGroupsRequest, res *pb.IDsResponse, err error) {
-				require.NoError(t, err)
+				require.Error(t, err)
 				require.Equal(t, res.Code, pb.Code_INVALID_ARGUMENT)
 			},
 		},

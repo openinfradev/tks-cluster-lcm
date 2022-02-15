@@ -91,7 +91,7 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 			Error: &pb.Error{
 				Msg: fmt.Sprint(err),
 			},
-		}, nil
+		}, err
 	}
 
 	// check contract
@@ -102,7 +102,7 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 			Error: &pb.Error{
 				Msg: fmt.Sprintf("Invalid contract Id %s", in.GetContractId()),
 			},
-		}, nil
+		}, err
 	}
 
 	// check csp
@@ -114,7 +114,7 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 			Error: &pb.Error{
 				Msg: fmt.Sprintf("Invalid CSP Id %s", in.GetCspId()),
 			},
-		}, nil
+		}, err
 	}
 
 	if cspInfo.GetContractId() != in.GetContractId() {
@@ -124,7 +124,7 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 			Error: &pb.Error{
 				Msg: fmt.Sprintf("ContractId and CSP Id do not match. expected contractId : %s", cspInfo.GetContractId()),
 			},
-		}, nil
+		}, err
 	}
 
 	// check cluster
@@ -164,7 +164,7 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 			Error: &pb.Error{
 				Msg: fmt.Sprintf("Failed to add cluster info. err : %s", err),
 			},
-		}, nil
+		}, err
 	}
 	clusterId = resAddClusterInfo.Id
 
@@ -196,7 +196,7 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 			Error: &pb.Error{
 				Msg: fmt.Sprintf("Failed to call argo workflow : %s", err),
 			},
-		}, nil
+		}, err
 	}
 	log.Debug("submited workflow name : ", workflowName)
 
@@ -238,7 +238,6 @@ func (s *server) ScaleCluster(ctx context.Context, in *pb.ScaleClusterRequest) (
 }
 
 // InstallAppGroups install apps, return a array of application id
-// [TODO] ktkfree : array 방식의 설치를 단일 Application 설치로 변경해야 할 것 같다.
 func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRequest) (*pb.IDsResponse, error) {
 	log.Debug("Request 'InstallAppGroups' ")
 
@@ -249,7 +248,7 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 			Error: &pb.Error{
 				Msg: fmt.Sprint(err),
 			},
-		}, nil
+		}, err
 	}
 
 	appGroupIds := []string{}
