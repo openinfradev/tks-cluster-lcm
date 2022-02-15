@@ -272,18 +272,33 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 		contractId = cluster.GetCluster().GetContractId()
 		log.Debug("contractId ", contractId)
 
-		// Create AppGoup
 		appGroupId := ""
-		res, err := appInfoClient.CreateAppGroup(ctx, &pb.CreateAppGroupRequest{
-			ClusterId: appGroup.GetClusterId(),
-			AppGroup:  appGroup,
+		res, err := appInfoClient.GetAppGroupsByClusterID(ctx, &pb.IDRequest{
+			Id: clusterId,
 		})
-		if err != nil {
-			log.Error("Failed to create app group info err : ", err)
-			continue
+		if err == nil && res.Code == pb.Code_OK_UNSPECIFIED {
+			for _, resAppGroup := range res.GetAppGroups() {
+				if resAppGroup.GetAppGroupName() == appGroup.GetAppGroupName() &&
+					resAppGroup.GetType() == appGroup.GetType() &&
+					resAppGroup.GetExternalLabel() == appGroup.GetExternalLabel() {
+					appGroupId = resAppGroup.GetAppGroupId()
+					break
+				}
+			}
 		}
-		appGroupId = res.GetId()
-		log.Debug("appGroupId : ", appGroupId)
+
+		if appGroupId == "" {
+			res, err := appInfoClient.CreateAppGroup(ctx, &pb.CreateAppGroupRequest{
+				ClusterId: appGroup.GetClusterId(),
+				AppGroup:  appGroup,
+			})
+			if err != nil {
+				log.Error("Failed to create app group info err : ", err)
+				continue
+			}
+			appGroupId = res.GetId()
+		}
+		log.Debug("appGroupId ", appGroupId)
 
 		// Call argo workflow template
 		log.Debug("appGroup.GetType() : ", appGroup.GetType())
