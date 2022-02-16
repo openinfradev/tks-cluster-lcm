@@ -324,13 +324,18 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 
 		case pb.AppGroupType_SERVICE_MESH:
 			workflowTemplate = "tks-service-mesh"
+			gitToken := "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"	// [TODO] use secret
+			siteRepoUrl := "https://" + gitToken + "@github.com/tks-management/" + clusterId
 			manifestRepoUrl := "https://github.com/tks-management/" + clusterId + "-manifests"
-			revision := "main"
+			tksInfoHost := "tks-info.tks.svc"
 			parameters = []string{
-				"site_name=" + clusterId,
-				"app_group=" + "service-mesh",
-				"manifest_repo_url=" + manifestRepoUrl,
-				"revision=" + revision,
+					"site_name=" + clusterId, 
+					"site_repo_url=" + siteRepoUrl,
+					"manifest_repo_url=" + manifestRepoUrl,
+					"revision=main",
+					"cluster_id=" + clusterId,
+					"app_group_id=" + appGroupId,
+					"tks_info_host=" + tksInfoHost,
 			}
 
 		default:
