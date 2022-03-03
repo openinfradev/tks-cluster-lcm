@@ -65,6 +65,13 @@ func validateCreateClusterRequest(in *pb.CreateClusterRequest) (err error) {
 	return nil
 }
 
+func validateDeleteClusterRequest(in *pb.IDRequest) (err error) {
+	if _, err := uuid.Parse(in.GetId()); err != nil {
+		return fmt.Errorf("invalid cluster ID %s", in.GetId())
+	}
+	return nil
+}
+
 func validateInstallAppGroupsRequest(in *pb.InstallAppGroupsRequest) (err error) {
 	for _, appGroup := range in.GetAppGroups() {
 		if _, err := uuid.Parse(appGroup.GetClusterId()); err != nil {
@@ -222,7 +229,7 @@ func (s *server) updateClusterStatus(ctx context.Context, clusterId string, stat
 		log.Error("Failed to update cluster status err : ", err)
 		return err
 	}
-	log.Info("updated cluster status RUNNING ", res)
+	log.Info("updated cluster status : ", res)
 
 	return nil
 }
@@ -233,6 +240,63 @@ func (s *server) ScaleCluster(ctx context.Context, in *pb.ScaleClusterRequest) (
 	log.Warn("Not Implemented gRPC API: 'ScaleCluster'")
 	return &pb.SimpleResponse{
 		Code:  pb.Code_UNIMPLEMENTED,
+		Error: nil,
+	}, nil
+}
+
+func (s *server) DeleteCluster(ctx context.Context, in *pb.IDRequest) (*pb.SimpleResponse, error) {
+	log.Info("Request 'DeleteCluster' for clusterId : ", in.GetId())
+
+	if err := validateDeleteClusterRequest(in); err != nil {
+		return &pb.SimpleResponse{
+			Code: pb.Code_INVALID_ARGUMENT,
+			Error: &pb.Error{
+				Msg: fmt.Sprint(err),
+			},
+		}, err
+	}
+	clusterId := in.GetId()
+
+	if _, err := clusterInfoClient.GetCluster(ctx, &pb.GetClusterRequest{ClusterId: clusterId}); err != nil {
+		log.Error("Failed to get cluster info err : ", err)
+		return &pb.SimpleResponse{
+			Code: pb.Code_NOT_FOUND,
+			Error: &pb.Error{
+				Msg: fmt.Sprintf("Invalid cluster Id %s", clusterId),
+			},
+		}, err
+	}
+
+	nameSpace := "argo"
+	workflow := "tks-remove-usercluster"
+	appGroup := "tks-cluster-aws"
+	tksInfoHost := "tks-info.tks.svc"
+	parameters := []string{
+		"app_group=" + appGroup,
+		"tks_info_host=" + tksInfoHost,
+		"cluster_id=" + clusterId,
+	}
+
+	workflowName, err := argowfClient.SumbitWorkflowFromWftpl(ctx, workflow, nameSpace, parameters)
+	if err != nil {
+		log.Error("failed to submit argo workflow template. err : ", err)
+		return &pb.SimpleResponse{
+			Code: pb.Code_INTERNAL,
+			Error: &pb.Error{
+				Msg: fmt.Sprintf("Failed to call argo workflow : %s", err),
+			},
+		}, err
+	}
+	log.Debug("submited workflow name : ", workflowName)
+
+	// update status : DELETEING
+	if err := s.updateClusterStatus(ctx, clusterId, pb.ClusterStatus_DELETING); err != nil {
+		log.Error("Failed to update cluster status : DELETING")
+	}
+
+	log.Info("cluster successfully deleted. clusterId : ", clusterId)
+	return &pb.SimpleResponse{
+		Code:  pb.Code_OK_UNSPECIFIED,
 		Error: nil,
 	}, nil
 }
@@ -324,18 +388,18 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 
 		case pb.AppGroupType_SERVICE_MESH:
 			workflowTemplate = "tks-service-mesh"
-			gitToken := "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"	// [TODO] use secret
+			gitToken := "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" // [TODO] use secret
 			siteRepoUrl := "https://" + gitToken + "@github.com/tks-management/" + clusterId
 			manifestRepoUrl := "https://github.com/tks-management/" + clusterId + "-manifests"
 			tksInfoHost := "tks-info.tks.svc"
 			parameters = []string{
-					"site_name=" + clusterId, 
-					"site_repo_url=" + siteRepoUrl,
-					"manifest_repo_url=" + manifestRepoUrl,
-					"revision=main",
-					"cluster_id=" + clusterId,
-					"app_group_id=" + appGroupId,
-					"tks_info_host=" + tksInfoHost,
+				"site_name=" + clusterId,
+				"site_repo_url=" + siteRepoUrl,
+				"manifest_repo_url=" + manifestRepoUrl,
+				"revision=main",
+				"cluster_id=" + clusterId,
+				"app_group_id=" + appGroupId,
+				"tks_info_host=" + tksInfoHost,
 			}
 
 		default:

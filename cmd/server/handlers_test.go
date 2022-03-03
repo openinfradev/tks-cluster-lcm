@@ -293,6 +293,121 @@ func TestCreateCluster(t *testing.T) {
 	}
 }
 
+func TestDeleteCluster(t *testing.T) {
+	testCases := []struct {
+		name          string
+		in            *pb.IDRequest
+		buildStubs    func(mockArgoClient *mockargo.MockClient, mockClusterInfoClient *mocktks.MockClusterInfoServiceClient)
+		checkResponse func(req *pb.IDRequest, res *pb.SimpleResponse, err error)
+	}{
+		{
+			name: "OK",
+			in: &pb.IDRequest{
+				Id: createdClusterId,
+			},
+			buildStubs: func(mockArgoClient *mockargo.MockClient,
+				mockClusterInfoClient *mocktks.MockClusterInfoServiceClient) {
+
+				mockClusterInfoClient.EXPECT().GetCluster(gomock.Any(), gomock.Any()).Times(1).
+					Return(
+						&pb.GetClusterResponse{
+							Code:  pb.Code_OK_UNSPECIFIED,
+							Error: nil,
+						}, nil)
+
+				mockClusterInfoClient.EXPECT().UpdateClusterStatus(gomock.Any(), gomock.Any()).Times(1).
+					Return(
+						&pb.SimpleResponse{
+							Code:  pb.Code_OK_UNSPECIFIED,
+							Error: nil,
+						}, nil)
+
+				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
+					Return(randomString("workflowName"), nil)
+			},
+			checkResponse: func(req *pb.IDRequest, res *pb.SimpleResponse, err error) {
+				require.NoError(t, err)
+				require.Equal(t, res.Code, pb.Code_OK_UNSPECIFIED)
+			},
+		},
+		{
+			name: "INVALID_ARGUMENT_CLUSTER_ID",
+			in: &pb.IDRequest{
+				Id: "THIS_IS_NOT_UUID",
+			},
+			buildStubs: func(mockArgoClient *mockargo.MockClient, mockClusterInfoClient *mocktks.MockClusterInfoServiceClient) {
+			},
+			checkResponse: func(req *pb.IDRequest, res *pb.SimpleResponse, err error) {
+				require.Error(t, err)
+				require.Equal(t, res.Code, pb.Code_INVALID_ARGUMENT)
+			},
+		},
+		{
+			name: "NOT_EXIST_CLUSTER",
+			in: &pb.IDRequest{
+				Id: uuid.New().String(),
+			},
+			buildStubs: func(mockArgoClient *mockargo.MockClient, mockClusterInfoClient *mocktks.MockClusterInfoServiceClient) {
+				mockClusterInfoClient.EXPECT().GetCluster(gomock.Any(), gomock.Any()).Times(1).
+					Return(
+						&pb.GetClusterResponse{
+							Code:  pb.Code_OK_UNSPECIFIED,
+							Error: nil,
+						}, errors.New("NOT_EXISTED_CLUSTER"))
+			},
+			checkResponse: func(req *pb.IDRequest, res *pb.SimpleResponse, err error) {
+				require.Error(t, err)
+				require.Equal(t, res.Code, pb.Code_NOT_FOUND)
+			},
+		},
+		{
+			name: "FAILED_TO_CALL_WORKFLOW",
+			in: &pb.IDRequest{
+				Id: uuid.New().String(),
+			},
+			buildStubs: func(mockArgoClient *mockargo.MockClient, mockClusterInfoClient *mocktks.MockClusterInfoServiceClient) {
+				mockClusterInfoClient.EXPECT().GetCluster(gomock.Any(), gomock.Any()).Times(1).
+					Return(
+						&pb.GetClusterResponse{
+							Code:  pb.Code_OK_UNSPECIFIED,
+							Error: nil,
+						}, nil)
+				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
+					Return(randomString("workflowName"), errors.New("FAILED_TO_CALL_WORKFLOW"))
+			},
+			checkResponse: func(req *pb.IDRequest, res *pb.SimpleResponse, err error) {
+				require.Error(t, err)
+				require.Equal(t, res.Code, pb.Code_INTERNAL)
+			},
+		},
+	}
+
+	for i := range testCases {
+		tc := testCases[i]
+
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			// mocking and injection
+			mockArgoClient := mockargo.NewMockClient(ctrl)
+			argowfClient = mockArgoClient
+
+			mockClusterInfoClient := mocktks.NewMockClusterInfoServiceClient(ctrl)
+			clusterInfoClient = mockClusterInfoClient
+
+			tc.buildStubs(mockArgoClient, mockClusterInfoClient)
+
+			s := server{}
+			res, err := s.DeleteCluster(ctx, tc.in)
+			tc.checkResponse(tc.in, res, err)
+		})
+	}
+}
+
 func TestInstallAppGroups(t *testing.T) {
 	testCases := []struct {
 		name       string
