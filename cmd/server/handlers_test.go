@@ -445,8 +445,7 @@ func TestInstallAppGroups(t *testing.T) {
 							Id:    createdAppGroupId,
 						}, nil)
 
-				maxCallCnt := 4
-				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(maxCallCnt).
+				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), "tks-lma-federation", gomock.Any(), gomock.Any()).Times(1).
 					Return(randomString("workflowName"), nil)
 			},
 			checkResponse: func(req *pb.InstallAppGroupsRequest, res *pb.IDsResponse, err error) {
@@ -500,8 +499,7 @@ func TestInstallAppGroups(t *testing.T) {
 							},
 						}, nil)
 
-				maxCallCnt := 4
-				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(maxCallCnt).
+				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), "tks-lma-federation", gomock.Any(), gomock.Any()).Times(1).
 					Return(randomString("workflowName"), nil)
 			},
 			checkResponse: func(req *pb.InstallAppGroupsRequest, res *pb.IDsResponse, err error) {
@@ -592,37 +590,7 @@ func TestInstallAppGroups(t *testing.T) {
 			},
 		},
 		{
-			name: "LMA_CALL_WORKFLOW_BY_4_TIMES",
-			in:   installAppGroupsRequest,
-			buildStubs: func(mockArgoClient *mockargo.MockClient,
-				mockAppInfoClient *mocktks.MockAppInfoServiceClient,
-				mockClusterInfoClient *mocktks.MockClusterInfoServiceClient) {
-				mockClusterInfoClient.EXPECT().GetCluster(gomock.Any(), gomock.Any()).Times(1).
-					Return(&pb.GetClusterResponse{}, nil)
-
-				mockAppInfoClient.EXPECT().CreateAppGroup(gomock.Any(), gomock.Any()).Times(1).
-					Return(&pb.IDResponse{Id: createdAppGroupId}, nil)
-
-				mockAppInfoClient.EXPECT().GetAppGroupsByClusterID(gomock.Any(), gomock.Any()).Times(1).
-					Return(&pb.GetAppGroupsResponse{Code: pb.Code_OK_UNSPECIFIED}, errors.New("NOT_EXISTED_APPGROUPS"))
-
-				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), "tks-lma-federation", gomock.Any(), gomock.Any()).Times(1).
-					Return(randomString("workflowName"), nil)
-				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), "cp-aws-infrastructure", gomock.Any(), gomock.Any()).Times(1).
-					Return(randomString("workflowName"), nil)
-				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), "setup-sealed-secrets-on-usercluster", gomock.Any(), gomock.Any()).Times(1).
-					Return(randomString("workflowName"), nil)
-				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), "tks-install-ingress-controller", gomock.Any(), gomock.Any()).Times(1).
-					Return(randomString("workflowName"), nil)
-			},
-			checkResponse: func(req *pb.InstallAppGroupsRequest, res *pb.IDsResponse, err error) {
-				require.NoError(t, err)
-				require.Equal(t, res.Code, pb.Code_OK_UNSPECIFIED)
-				require.True(t, len(installAppGroupsRequest.AppGroups) == len(res.Ids))
-			},
-		},
-		{
-			name: "SERVICEMESH_CALL_WORKFLOW_BY_1_TIME",
+			name: "SERVICEMESH_CALL_WORKFLOW",
 			in: &pb.InstallAppGroupsRequest{
 				AppGroups: []*pb.AppGroup{
 					{

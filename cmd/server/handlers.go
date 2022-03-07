@@ -421,67 +421,6 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 		log.Debug("submited workflow name :", workflowName)
 
 		appGroupIds = append(appGroupIds, appGroupId)
-
-		// 아래의 workflow 는 App 설치시 한꺼번에 병렬로 실행한다.
-		if appGroup.GetType() == pb.AppGroupType_LMA {
-			{
-				workflowTemplate := "cp-aws-infrastructure"
-				parameters := []string{
-					"cluster_id=" + clusterId,
-				}
-				workflowName, err := argowfClient.SumbitWorkflowFromWftpl(ctx, workflowTemplate, "argo", parameters)
-				if err != nil {
-					log.Error("failed to submit argo workflow template. err : ", err)
-					return &pb.IDsResponse{
-						Code: pb.Code_INTERNAL,
-						Error: &pb.Error{
-							Msg: fmt.Sprintf("Failed to call argo workflow : %s", err),
-						},
-					}, nil
-				}
-				log.Debug("submited workflow name :", workflowName)
-			}
-			{
-				workflowTemplate := "setup-sealed-secrets-on-usercluster"
-				manifestRepoUrl := "https://github.com/tks-management/" + clusterId + "-manifests"
-				parameters := []string{
-					"site_name=" + clusterId,
-					"manifest_repo_url=" + manifestRepoUrl,
-					"revision=" + "main",
-				}
-				workflowName, err := argowfClient.SumbitWorkflowFromWftpl(ctx, workflowTemplate, "argo", parameters)
-				if err != nil {
-					log.Error("failed to submit argo workflow template. err : ", err)
-					return &pb.IDsResponse{
-						Code: pb.Code_INTERNAL,
-						Error: &pb.Error{
-							Msg: fmt.Sprintf("Failed to call argo workflow : %s", err),
-						},
-					}, nil
-				}
-				log.Debug("submited workflow name :", workflowName)
-			}
-			{
-				workflowTemplate := "tks-install-ingress-controller"
-				manifestRepoUrl := "https://github.com/tks-management/" + clusterId + "-manifests"
-				parameters := []string{
-					"manifest_repo_url=" + manifestRepoUrl,
-					"site_name=" + clusterId,
-					"revision=" + "main",
-				}
-				workflowName, err := argowfClient.SumbitWorkflowFromWftpl(ctx, workflowTemplate, "argo", parameters)
-				if err != nil {
-					log.Error("failed to submit argo workflow template. err : ", err)
-					return &pb.IDsResponse{
-						Code: pb.Code_INTERNAL,
-						Error: &pb.Error{
-							Msg: fmt.Sprintf("Failed to call argo workflow : %s", err),
-						},
-					}, nil
-				}
-				log.Debug("submited workflow name :", workflowName)
-			}
-		}
 	}
 
 	log.Info("completed installation. appGroupIds : ", appGroupIds)
