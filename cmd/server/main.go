@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"net"
+	"os"
 	"strconv"
 
 	"github.com/openinfradev/tks-common/pkg/log"
@@ -18,6 +19,8 @@ var (
 	infoPort        = flag.Int("info-port", 9111, "service port for tks-info")
 	argoAddress     = flag.String("argo-address", "192.168.70.10", "server address for argo-workflow-server")
 	argoPort        = flag.Int("argo-port", 2746, "server port for argo-workflow-server")
+
+	gitToken = os.Getenv("TOKEN")
 )
 
 type server struct {
@@ -27,6 +30,10 @@ type server struct {
 func main() {
 	log.Info("tks-cluster-lcm server is starting...")
 	flag.Parse()
+
+	if gitToken == "" {
+		log.Fatal("Specify gitToken to environment variable (TOKEN).")
+	}
 
 	log.Info("*** Connection Addresses *** ")
 	log.Info("contractAddress : ", *contractAddress)

@@ -437,6 +437,9 @@ func TestInstallAppGroups(t *testing.T) {
 							Error: nil,
 						}, errors.New("NOT_EXISTED_APPGROUPS"))
 
+				mockAppInfoClient.EXPECT().UpdateAppGroupStatus(gomock.Any(), gomock.Any()).Times(1).
+					Return(&pb.SimpleResponse{Code: pb.Code_OK_UNSPECIFIED, Error: nil}, nil)
+
 				mockAppInfoClient.EXPECT().CreateAppGroup(gomock.Any(), gomock.Any()).Times(1).
 					Return(
 						&pb.IDResponse{
@@ -501,6 +504,9 @@ func TestInstallAppGroups(t *testing.T) {
 
 				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), "tks-lma-federation", gomock.Any(), gomock.Any()).Times(1).
 					Return(randomString("workflowName"), nil)
+
+				mockAppInfoClient.EXPECT().UpdateAppGroupStatus(gomock.Any(), gomock.Any()).Times(1).
+					Return(&pb.SimpleResponse{Code: pb.Code_OK_UNSPECIFIED, Error: nil}, nil)
 			},
 			checkResponse: func(req *pb.InstallAppGroupsRequest, res *pb.IDsResponse, err error) {
 				require.NoError(t, err)
@@ -615,6 +621,9 @@ func TestInstallAppGroups(t *testing.T) {
 				mockAppInfoClient.EXPECT().GetAppGroupsByClusterID(gomock.Any(), gomock.Any()).Times(1).
 					Return(&pb.GetAppGroupsResponse{Code: pb.Code_OK_UNSPECIFIED}, errors.New("NOT_EXISTED_APPGROUPS"))
 
+				mockAppInfoClient.EXPECT().UpdateAppGroupStatus(gomock.Any(), gomock.Any()).Times(1).
+					Return(&pb.SimpleResponse{Code: pb.Code_OK_UNSPECIFIED, Error: nil}, nil)
+
 				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), "tks-service-mesh", gomock.Any(), gomock.Any()).Times(1).
 					Return(randomString("workflowName"), nil)
 			},
@@ -672,6 +681,154 @@ func TestInstallAppGroups(t *testing.T) {
 
 			s := server{}
 			res, err := s.InstallAppGroups(ctx, tc.in)
+			tc.checkResponse(tc.in, res, err)
+		})
+	}
+}
+
+func TestUninstallAppGroups(t *testing.T) {
+	testCases := []struct {
+		name          string
+		in            *pb.UninstallAppGroupsRequest
+		buildStubs    func(mockArgoClient *mockargo.MockClient, mockAppInfoClient *mocktks.MockAppInfoServiceClient)
+		checkResponse func(req *pb.UninstallAppGroupsRequest, res *pb.IDsResponse, err error)
+	}{
+		{
+			name: "OK",
+			in: &pb.UninstallAppGroupsRequest{
+				AppGroupIds: []string{createdAppGroupId},
+			},
+			buildStubs: func(mockArgoClient *mockargo.MockClient, mockAppInfoClient *mocktks.MockAppInfoServiceClient) {
+				mockAppInfoClient.EXPECT().GetAppGroup(gomock.Any(), gomock.Any()).Times(1).
+					Return(
+						&pb.GetAppGroupResponse{
+							Code:     pb.Code_OK_UNSPECIFIED,
+							Error:    nil,
+							AppGroup: installAppGroupsRequest.GetAppGroups()[0],
+						}, nil)
+
+				mockAppInfoClient.EXPECT().UpdateAppGroupStatus(gomock.Any(), gomock.Any()).Times(1).
+					Return(&pb.SimpleResponse{Code: pb.Code_OK_UNSPECIFIED, Error: nil}, nil)
+
+				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
+					Return(randomString("workflowName"), nil)
+			},
+			checkResponse: func(req *pb.UninstallAppGroupsRequest, res *pb.IDsResponse, err error) {
+				require.NoError(t, err)
+				require.Equal(t, res.Code, pb.Code_OK_UNSPECIFIED)
+				require.Equal(t, len(res.Ids), 1)
+				require.Equal(t, createdAppGroupId, res.Ids[0])
+			},
+		},
+		{
+			name: "INVALID_ARGUMENT_APPGROUP_ID",
+			in: &pb.UninstallAppGroupsRequest{
+				AppGroupIds: []string{"THIS_IS_NOT_UUID"},
+			},
+			buildStubs: func(mockArgoClient *mockargo.MockClient, mockAppInfoClient *mocktks.MockAppInfoServiceClient) {
+			},
+			checkResponse: func(req *pb.UninstallAppGroupsRequest, res *pb.IDsResponse, err error) {
+				require.Error(t, err)
+				require.Equal(t, res.Code, pb.Code_INVALID_ARGUMENT)
+			},
+		},
+		{
+			name: "NOT_EXISTED_APPGROUP",
+			in: &pb.UninstallAppGroupsRequest{
+				AppGroupIds: []string{uuid.New().String()},
+			},
+			buildStubs: func(mockArgoClient *mockargo.MockClient, mockAppInfoClient *mocktks.MockAppInfoServiceClient) {
+				mockAppInfoClient.EXPECT().GetAppGroup(gomock.Any(), gomock.Any()).Times(1).
+					Return(
+						&pb.GetAppGroupResponse{
+							Code:  pb.Code_OK_UNSPECIFIED,
+							Error: nil,
+						}, errors.New("NOT_EXISTED_APPGROUP"))
+			},
+			checkResponse: func(req *pb.UninstallAppGroupsRequest, res *pb.IDsResponse, err error) {
+				require.NoError(t, err)
+				require.Equal(t, res.Code, pb.Code_OK_UNSPECIFIED)
+				require.Equal(t, len(res.Ids), 0)
+			},
+		},
+		{
+			name: "FAILED_TO_CALL_WORKFLOW",
+			in: &pb.UninstallAppGroupsRequest{
+				AppGroupIds: []string{createdAppGroupId},
+			},
+			buildStubs: func(mockArgoClient *mockargo.MockClient, mockAppInfoClient *mocktks.MockAppInfoServiceClient) {
+				mockAppInfoClient.EXPECT().GetAppGroup(gomock.Any(), gomock.Any()).Times(1).
+					Return(
+						&pb.GetAppGroupResponse{
+							Code:     pb.Code_OK_UNSPECIFIED,
+							Error:    nil,
+							AppGroup: installAppGroupsRequest.GetAppGroups()[0],
+						}, nil)
+
+				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
+					Return("", errors.New("FAILED_TO_CALL_WORKFLOW"))
+			},
+			checkResponse: func(req *pb.UninstallAppGroupsRequest, res *pb.IDsResponse, err error) {
+				require.Error(t, err)
+				require.Equal(t, res.Code, pb.Code_INTERNAL)
+			},
+		},
+		{
+			name: "PARTIALLY_SUCCESS",
+			in: &pb.UninstallAppGroupsRequest{
+				AppGroupIds: []string{createdAppGroupId, uuid.New().String()},
+			},
+			buildStubs: func(mockArgoClient *mockargo.MockClient, mockAppInfoClient *mocktks.MockAppInfoServiceClient) {
+				mockAppInfoClient.EXPECT().GetAppGroup(gomock.Any(), &pb.GetAppGroupRequest{AppGroupId: createdAppGroupId}).Times(1).
+					Return(
+						&pb.GetAppGroupResponse{
+							Code:     pb.Code_OK_UNSPECIFIED,
+							Error:    nil,
+							AppGroup: installAppGroupsRequest.GetAppGroups()[0],
+						}, nil)
+
+				mockAppInfoClient.EXPECT().GetAppGroup(gomock.Any(), gomock.Any()).Times(1).
+					Return(
+						&pb.GetAppGroupResponse{
+							Code:  pb.Code_OK_UNSPECIFIED,
+							Error: nil,
+						}, errors.New("NOT_EXISTED_APPGROUP"))
+
+				mockAppInfoClient.EXPECT().UpdateAppGroupStatus(gomock.Any(), gomock.Any()).Times(1).
+					Return(&pb.SimpleResponse{Code: pb.Code_OK_UNSPECIFIED, Error: nil}, nil)
+
+				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
+					Return(randomString("workflowName"), nil)
+			},
+			checkResponse: func(req *pb.UninstallAppGroupsRequest, res *pb.IDsResponse, err error) {
+				require.NoError(t, err)
+				require.Equal(t, res.Code, pb.Code_OK_UNSPECIFIED)
+				require.Equal(t, len(res.Ids), 1)
+				require.Equal(t, createdAppGroupId, res.Ids[0])
+			},
+		},
+	}
+	for i := range testCases {
+		tc := testCases[i]
+
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			// mocking and injection
+			mockArgoClient := mockargo.NewMockClient(ctrl)
+			argowfClient = mockArgoClient
+
+			mockAppInfoClient := mocktks.NewMockAppInfoServiceClient(ctrl)
+			appInfoClient = mockAppInfoClient
+
+			tc.buildStubs(mockArgoClient, mockAppInfoClient)
+
+			s := server{}
+			res, err := s.UninstallAppGroups(ctx, tc.in)
 			tc.checkResponse(tc.in, res, err)
 		})
 	}
