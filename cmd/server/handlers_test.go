@@ -653,8 +653,8 @@ func TestInstallAppGroups(t *testing.T) {
 			},
 			checkResponse: func(req *pb.InstallAppGroupsRequest, res *pb.IDsResponse, err error) {
 				require.NoError(t, err)
-				require.Equal(t, res.Code, pb.Code_INTERNAL)
-				require.True(t, res.Error != nil)
+				require.Equal(t, res.Code, pb.Code_OK_UNSPECIFIED)
+				require.Equal(t, len(res.Ids), 0)
 			},
 		},
 	}
@@ -769,8 +769,9 @@ func TestUninstallAppGroups(t *testing.T) {
 					Return("", errors.New("FAILED_TO_CALL_WORKFLOW"))
 			},
 			checkResponse: func(req *pb.UninstallAppGroupsRequest, res *pb.IDsResponse, err error) {
-				require.Error(t, err)
-				require.Equal(t, res.Code, pb.Code_INTERNAL)
+				require.NoError(t, err)
+				require.Equal(t, res.Code, pb.Code_OK_UNSPECIFIED)
+				require.Equal(t, len(res.Ids), 0)
 			},
 		},
 		{
