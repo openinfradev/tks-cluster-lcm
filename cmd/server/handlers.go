@@ -190,16 +190,13 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 	// create usercluster
 	nameSpace := "argo"
 	workflow := "create-tks-usercluster"
-	templateName := "template-std"
-	gitAccount := "tks-management"
-	revision := "main"
-	manifestRepoUrl := "https://github.com/tks-management/" + clusterId + "-manifests"
+	manifestRepoUrl := "https://github.com/" + gitAccount + "/" + clusterId + "-manifests"
 
 	parameters := []string{
 		"contract_id=" + in.GetContractId(),
 		"cluster_id=" + clusterId,
 		"site_name=" + clusterId,
-		"template_name=" + templateName,
+		"template_name=template-std",
 		"git_account=" + gitAccount,
 		"manifest_repo_url=" + manifestRepoUrl,
 		"revision=" + revision,
@@ -265,11 +262,9 @@ func (s *server) DeleteCluster(ctx context.Context, in *pb.IDRequest) (*pb.Simpl
 
 	nameSpace := "argo"
 	workflow := "tks-remove-usercluster"
-	appGroup := "tks-cluster-aws"
-	tksInfoHost := "tks-info.tks.svc"
 	parameters := []string{
-		"app_group=" + appGroup,
-		"tks_info_host=" + tksInfoHost,
+		"app_group=tks-cluster-aws",
+		"tks_info_host=tks-info.tks.svc",
 		"cluster_id=" + clusterId,
 	}
 
@@ -360,17 +355,16 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 
 		// Call argo workflow template
 		workflowTemplate := ""
-		siteRepoUrl := "https://" + gitToken + "@github.com/tks-management/" + clusterId
-		manifestRepoUrl := "https://github.com/tks-management/" + clusterId + "-manifests"
-		tksInfoHost := "tks-info.tks.svc"
+		siteRepoUrl := "https://" + gitToken + "@github.com/" + gitAccount + "/" + clusterId
+		manifestRepoUrl := "https://github.com/" + gitAccount + "/" + clusterId + "-manifests"
 		parameters := []string{
 			"site_name=" + clusterId,
 			"cluster_id=" + clusterId,
 			"site_repo_url=" + siteRepoUrl,
 			"manifest_repo_url=" + manifestRepoUrl,
-			"revision=main",
+			"revision=" + revision,
 			"app_group_id=" + appGroupId,
-			"tks_info_host=" + tksInfoHost,
+			"tks_info_host=tks-info.tks.svc",
 		}
 
 		switch appGroup.GetType() {
@@ -456,12 +450,11 @@ func (s *server) UninstallAppGroups(ctx context.Context, in *pb.UninstallAppGrou
 			continue
 		}
 
-		siteRepoUrl := "https://" + gitToken + "@github.com/tks-management/" + clusterId
-		tksInfoHost := "tks-info.tks.svc"
+		siteRepoUrl := "https://" + gitToken + "@github.com/" + gitAccount + "/" + clusterId
 		parameters := []string{
 			"app_group=" + appGroupName,
 			"site_repo_url=" + siteRepoUrl,
-			"tks_info_host=" + tksInfoHost,
+			"tks_info_host=tks-info.tks.svc",
 			"cluster_id=" + clusterId,
 			"app_group_id=" + appGroupId,
 		}
