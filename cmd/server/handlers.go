@@ -253,14 +253,25 @@ func (s *server) DeleteCluster(ctx context.Context, in *pb.IDRequest) (*pb.Simpl
 	}
 	clusterId := in.GetId()
 
-	if _, err := clusterInfoClient.GetCluster(ctx, &pb.GetClusterRequest{ClusterId: clusterId}); err != nil {
+	res, err := clusterInfoClient.GetCluster(ctx, &pb.GetClusterRequest{ClusterId: clusterId})
+	if err != nil {
 		log.Error("Failed to get cluster info err : ", err)
 		return &pb.SimpleResponse{
 			Code: pb.Code_NOT_FOUND,
 			Error: &pb.Error{
-				Msg: fmt.Sprintf("Invalid cluster Id %s", clusterId),
+				Msg: fmt.Sprintf("Could not find Cluster with ID %s", clusterId),
 			},
 		}, err
+	}
+
+	if res.GetCluster().GetStatus() == pb.ClusterStatus_DELETING || res.GetCluster().GetStatus() == pb.ClusterStatus_DELETED {
+		log.Error("The cluster has been already deleted. status : ", res.GetCluster().GetStatus())
+		return &pb.SimpleResponse{
+			Code: pb.Code_NOT_FOUND,
+			Error: &pb.Error{
+				Msg: fmt.Sprintf("Could not find cluster with ID. %s", clusterId),
+			},
+		}, fmt.Errorf("Could not find cluster with ID. %s", clusterId)
 	}
 
 	nameSpace := "argo"
