@@ -361,6 +361,27 @@ func TestDeleteCluster(t *testing.T) {
 			},
 		},
 		{
+			name: "THE_CLUSTER_ALREADY_DELETED",
+			in: &pb.IDRequest{
+				Id: uuid.New().String(),
+			},
+			buildStubs: func(mockArgoClient *mockargo.MockClient, mockClusterInfoClient *mocktks.MockClusterInfoServiceClient) {
+				mockClusterInfoClient.EXPECT().GetCluster(gomock.Any(), gomock.Any()).Times(1).
+					Return(
+						&pb.GetClusterResponse{
+							Code:  pb.Code_OK_UNSPECIFIED,
+							Error: nil,
+							Cluster: &pb.Cluster{
+								Status: pb.ClusterStatus_DELETED,
+							},
+						}, nil)
+			},
+			checkResponse: func(req *pb.IDRequest, res *pb.SimpleResponse, err error) {
+				require.Error(t, err)
+				require.Equal(t, res.Code, pb.Code_NOT_FOUND)
+			},
+		},
+		{
 			name: "FAILED_TO_CALL_WORKFLOW",
 			in: &pb.IDRequest{
 				Id: uuid.New().String(),
