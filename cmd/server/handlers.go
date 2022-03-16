@@ -20,6 +20,8 @@ var (
 	appInfoClient     pb.AppInfoServiceClient
 )
 
+const MAX_SIZE_PER_AZ = 99
+
 // 각 client lifecycle은 서버 종료시까지므로 close는 하지 않는다.
 func InitHandlers(contractAddress string, contractPort int, infoAddress string, infoPort int, argoAddress string, argoPort int) {
 	var err error
@@ -166,13 +168,104 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 		}
 	*/
 
+  /***************************
+  * Pre-process cluster conf *
+  ***************************/
+  rawConf := in.GetConf()
+  fmt.Printf("ClusterRawConf: %+v\n", rawConf)
+
+  region := "ap-northeast-2"
+  if rawConf != nil && rawConf.Region != "" {
+    region = rawConf.Region
+  }
+
+  numOfAz := 3
+  if rawConf != nil && rawConf.NumOfAz != 0 {
+    numOfAz = int(rawConf.NumOfAz)
+  }
+
+  sshKeyName := "tks-seoul"
+  if rawConf != nil && rawConf.SshKeyName != "" {
+    sshKeyName = rawConf.SshKeyName
+  }
+
+  machineType := "t3.large"
+  if rawConf != nil && rawConf.MachineType != "" {
+    machineType = rawConf.MachineType
+  }
+
+  minSizePerAz := 1
+  maxSizePerAz := 5
+
+  // Check if numOfAz is correct based on pre-defined mapping table
+  //validateNumOfAz(region, numOfAz)
+
+  // TODO: Temporary table for test. Should be improved soon.
+  azPerRegionTable := map[string]int{
+	  "ap-northeast-1": 3,
+	  "ap-northeast-2": 3,
+  }
+
+  maxAzForSelectedRegion := azPerRegionTable[region]
+  if numOfAz > maxAzForSelectedRegion {
+    log.Error("Invalid numOfAz: exceeded the number of Az in region ", region)
+    temp_err := fmt.Errorf("Invalid numOfAz: exceeded the number of Az in region %s", region)
+		return &pb.IDResponse{
+			Code: pb.Code_INTERNAL,
+			Error: &pb.Error{
+				Msg: fmt.Sprintf("Invalid numOfAz"),
+			},
+		}, temp_err
+  }
+
+  // Validate if machineReplicas is multiple of number of AZ
+  replicas := int(rawConf.MachineReplicas)
+
+  if replicas == 0 {
+    log.Debug("No machineReplicas param. Using default values..")
+  } else {
+    if remainder := replicas % numOfAz; remainder != 0 {
+      log.Error("Invalid machineReplicas: it should be multiple of numOfAz ", numOfAz)
+      temp_err := fmt.Errorf("Invalid machineReplicas: it should be multiple of numOfAz %d", numOfAz)
+      return &pb.IDResponse{
+        Code: pb.Code_INTERNAL,
+        Error: &pb.Error{
+          Msg: fmt.Sprintf("Invalid machineReplicas!"),
+        },
+      }, temp_err
+    } else {
+      minSizePerAz = int(replicas/numOfAz)
+      maxSizePerAz = minSizePerAz * 5
+
+      // Validate if maxSizePerAx is within allowed range
+      if maxSizePerAz > MAX_SIZE_PER_AZ {
+        fmt.Printf("maxSizePerAz exceeded maximum value %d, so adjusted to %d", MAX_SIZE_PER_AZ, MAX_SIZE_PER_AZ)
+        maxSizePerAz = MAX_SIZE_PER_AZ
+      }
+      log.Debug("Derived minSizePerAz: ", minSizePerAz)
+      log.Debug("Derived maxSizePerAz: ", maxSizePerAz)
+    }
+  }
+
+  // Construct cluster conf
+  tempConf := pb.ClusterConf{
+    SshKeyName: sshKeyName,
+    Region: region,
+    NumOfAz: int32(numOfAz),
+    MachineType: machineType,
+    MinSizePerAz: int32(minSizePerAz),
+    MaxSizePerAz: int32(maxSizePerAz),
+  }
+
+  fmt.Printf("Newly constructed cluster conf: %+v\n", tempConf)
+
 	// create cluster info
 	clusterId := ""
 	resAddClusterInfo, err := clusterInfoClient.AddClusterInfo(ctx, &pb.AddClusterInfoRequest{
 		ContractId: in.GetContractId(),
 		CspId:      in.GetCspId(),
 		Name:       in.GetName(),
-		Conf:       in.GetConf(),
+		Conf:       &tempConf,
 	})
 	if err != nil {
 		log.Error("Failed to add cluster info. err : ", err)
@@ -202,6 +295,8 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 		"revision=" + revision,
 	}
 
+	log.Info("Submitting workflow: ", workflow)
+
 	workflowName, err := argowfClient.SumbitWorkflowFromWftpl(ctx, workflow, nameSpace, parameters)
 	if err != nil {
 		log.Error("failed to submit argo workflow template. err : ", err)
@@ -212,7 +307,7 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 			},
 		}, err
 	}
-	log.Debug("submited workflow name : ", workflowName)
+	log.Info("Successfully submited workflow: ", workflowName)
 
 	// update status : INSTALLING
 	if err := s.updateClusterStatus(ctx, clusterId, pb.ClusterStatus_INSTALLING); err != nil {
