@@ -381,7 +381,12 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 		switch appGroup.GetType() {
 		case pb.AppGroupType_LMA:
 			workflowTemplate = "tks-lma-federation"
+			parameters = append(parameters, "logging_component=loki")
+
+		case pb.AppGroupType_LMA_EFK:
+			workflowTemplate = "tks-lma-federation"
 			parameters = append(parameters, "logging_component=efk")
+
 
 		case pb.AppGroupType_SERVICE_MESH:
 			workflowTemplate = "tks-service-mesh"
@@ -448,7 +453,7 @@ func (s *server) UninstallAppGroups(ctx context.Context, in *pb.UninstallAppGrou
 		appGroupName := ""
 
 		switch appGroup.GetType() {
-		case pb.AppGroupType_LMA:
+		case pb.AppGroupType_LMA, pb.AppGroupType_LMA_EFK:
 			workflowTemplate = "tks-remove-lma-federation"
 			appGroupName = "lma"
 
