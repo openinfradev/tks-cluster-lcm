@@ -404,7 +404,7 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 		}
 		log.Debug("submited workflow name :", workflowName)
 
-		if err := s.updateAppGroupStatus(ctx, clusterId, pb.AppGroupStatus_APP_GROUP_INSTALLING); err != nil {
+		if err := s.updateAppGroupStatus(ctx, appGroupId, pb.AppGroupStatus_APP_GROUP_INSTALLING); err != nil {
 			log.Error("Failed to update appgroup status to 'APP_GROUP_INSTALLING'")
 		}
 
@@ -483,7 +483,7 @@ func (s *server) UninstallAppGroups(ctx context.Context, in *pb.UninstallAppGrou
 		log.Debug("submited workflow name :", workflowName)
 
 		resAppGroupIds = append(resAppGroupIds, appGroupId)
-		if err := s.updateAppGroupStatus(ctx, clusterId, pb.AppGroupStatus_APP_GROUP_DELETING); err != nil {
+		if err := s.updateAppGroupStatus(ctx, appGroupId, pb.AppGroupStatus_APP_GROUP_DELETING); err != nil {
 			log.Error("Failed to update appgroup status to 'APP_GROUP_DELETING'")
 		}
 	}
