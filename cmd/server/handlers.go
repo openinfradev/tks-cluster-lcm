@@ -6,51 +6,10 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/openinfradev/tks-common/pkg/argowf"
-	"github.com/openinfradev/tks-common/pkg/grpc_client"
 	"github.com/openinfradev/tks-common/pkg/log"
 	pb "github.com/openinfradev/tks-proto/tks_pb"
 )
 
-var (
-	argowfClient      argowf.Client
-	contractClient    pb.ContractServiceClient
-	cspInfoClient     pb.CspInfoServiceClient
-	clusterInfoClient pb.ClusterInfoServiceClient
-	appInfoClient     pb.AppInfoServiceClient
-)
-
-// 각 client lifecycle은 서버 종료시까지므로 close는 하지 않는다.
-func InitHandlers(contractAddress string, contractPort int, infoAddress string, infoPort int, argoAddress string, argoPort int) {
-	var err error
-
-	argowfClient, err = argowf.New(argoAddress, argoPort)
-	if err != nil {
-		log.Fatal("failed to create argowf client : ", err)
-	}
-
-	_, contractClient, err = grpc_client.CreateContractClient(contractAddress, contractPort, "tks-cluster-lcm")
-	if err != nil {
-		log.Fatal("failed to create contract client : ", err)
-	}
-
-	_, cspInfoClient, err = grpc_client.CreateCspInfoClient(infoAddress, infoPort, "tks-cluster-lcm")
-	if err != nil {
-		log.Fatal("failed to create cspinfo client : ", err)
-	}
-
-	_, clusterInfoClient, err = grpc_client.CreateClusterInfoClient(infoAddress, infoPort, "tks-cluster-lcm")
-	if err != nil {
-		log.Fatal("failed to create cluster client : ", err)
-	}
-
-	_, appInfoClient, err = grpc_client.CreateAppInfoClient(infoAddress, infoPort, "tks-cluster-lcm")
-	if err != nil {
-		log.Fatal("failed to create appinfo client : ", err)
-	}
-
-	log.Info("All clients created successfully")
-}
 
 func validateCreateClusterRequest(in *pb.CreateClusterRequest) (err error) {
 	if _, err := uuid.Parse(in.GetContractId()); err != nil {
