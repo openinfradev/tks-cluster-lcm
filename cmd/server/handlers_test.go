@@ -870,15 +870,12 @@ func randomCreateClusterRequest() *pb.CreateClusterRequest {
 		ContractId: uuid.New().String(),
 		CspId:      uuid.New().String(),
 		Name:       randomString("NAME"),
-		Conf: &pb.ClusterConf{
-			MasterFlavor:   randomString("MASTERFLAVOR"),
-			MasterReplicas: 3,
-			MasterRootSize: 30,
-			WorkerFlavor:   randomString("WORKERFLAVOR"),
-			WorkerReplicas: 3,
-			WorkerRootSize: 30,
-			K8SVersion:     "1.21",
-			Region:         randomString("REGION"),
+		Conf: &pb.ClusterRawConf{
+			SshKeyName:      randomString("SSHKEYNAME"),
+			Region:          "ap-northeast-2",
+			NumOfAz:         3,
+			MachineType:     randomString("MACHINETYPE"),
+			MachineReplicas: 3,
 		},
 	}
 }

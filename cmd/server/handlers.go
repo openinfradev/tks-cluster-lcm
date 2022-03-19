@@ -213,7 +213,7 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 		return &pb.IDResponse{
 			Code: pb.Code_INTERNAL,
 			Error: &pb.Error{
-				Msg: fmt.Sprintf("Invalid numOfAz"),
+				Msg: "Invalid numOfAz",
 			},
 		}, temp_err
 	}
@@ -230,7 +230,7 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 			return &pb.IDResponse{
 				Code: pb.Code_INTERNAL,
 				Error: &pb.Error{
-					Msg: fmt.Sprintf("Invalid machineReplicas!"),
+					Msg: "Invalid machineReplicas!",
 				},
 			}, temp_err
 		} else {
@@ -257,7 +257,7 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 		MaxSizePerAz: int32(maxSizePerAz),
 	}
 
-	fmt.Printf("Newly constructed cluster conf: %+v\n", tempConf)
+	fmt.Printf("Newly constructed cluster conf: %+v\n", &tempConf)
 
 	// create cluster info
 	clusterId := ""
