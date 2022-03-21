@@ -1,9 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/openinfradev/tks-common/pkg/argowf"
@@ -125,13 +129,36 @@ func constructClusterConf(rawConf *pb.ClusterRawConf) (clusterConf *pb.ClusterCo
 	maxSizePerAz := 5
 
 	// Check if numOfAz is correct based on pre-defined mapping table
-	// TODO: Temporary table for test. Should be improved soon.
-	azPerRegionTable := map[string]int{
-		"ap-northeast-1": 3,
-		"ap-northeast-2": 3,
+	maxAzForSelectedRegion := 0
+
+	file, err := os.Open("./az-per-region.txt")
+	if err != nil {
+		log.Error(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	var found bool = false
+	for scanner.Scan() {
+		if strings.Contains(scanner.Text(), region) {
+			log.Debug("Found region line: ", scanner.Text())
+			azNum := strings.Split(scanner.Text(), ":")[1]
+			maxAzForSelectedRegion, err = strconv.Atoi(strings.TrimSpace(azNum))
+			if err != nil {
+				log.Error("Error while converting azNum to int var: ", err)
+			}
+			log.Debug("Trimmed azNum var: ", maxAzForSelectedRegion)
+			found = true
+		}
 	}
 
-	maxAzForSelectedRegion := azPerRegionTable[region]
+	if err := scanner.Err(); err != nil {
+		log.Error("Error while processing file: ", err)
+	}
+	if !found {
+		log.Error("Couldn't find entry for region ", region)
+	}
+
 	if numOfAz > maxAzForSelectedRegion {
 		log.Error("Invalid numOfAz: exceeded the number of Az in region ", region)
 		temp_err := fmt.Errorf("Invalid numOfAz: exceeded the number of Az in region %s", region)
@@ -148,6 +175,7 @@ func constructClusterConf(rawConf *pb.ClusterRawConf) (clusterConf *pb.ClusterCo
 			temp_err := fmt.Errorf("Invalid machineReplicas: it should be multiple of numOfAz %d", numOfAz)
 			return nil, temp_err
 		} else {
+			log.Debug("Valid replicas and numOfAz. Caculating minSize & maxSize..")
 			minSizePerAz = int(replicas / numOfAz)
 			maxSizePerAz = minSizePerAz * 5
 
