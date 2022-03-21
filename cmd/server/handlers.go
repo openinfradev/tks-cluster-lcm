@@ -10,7 +10,6 @@ import (
 	pb "github.com/openinfradev/tks-proto/tks_pb"
 )
 
-
 func validateCreateClusterRequest(in *pb.CreateClusterRequest) (err error) {
 	if _, err := uuid.Parse(in.GetContractId()); err != nil {
 		return fmt.Errorf("invalid contract ID %s", in.GetContractId())
@@ -149,14 +148,14 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 	// create usercluster
 	nameSpace := "argo"
 	workflow := "create-tks-usercluster"
-	manifestRepoUrl := "https://github.com/" + gitAccount + "/" + clusterId + "-manifests"
+	manifestRepoUrl := "https://github.com/" + githubAccount + "/" + clusterId + "-manifests"
 
 	parameters := []string{
 		"contract_id=" + in.GetContractId(),
 		"cluster_id=" + clusterId,
 		"site_name=" + clusterId,
 		"template_name=template-std",
-		"git_account=" + gitAccount,
+		"git_account=" + githubAccount,
 		"manifest_repo_url=" + manifestRepoUrl,
 		"revision=" + revision,
 	}
@@ -325,8 +324,8 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 
 		// Call argo workflow template
 		workflowTemplate := ""
-		siteRepoUrl := "https://" + gitToken + "@github.com/" + gitAccount + "/" + clusterId
-		manifestRepoUrl := "https://github.com/" + gitAccount + "/" + clusterId + "-manifests"
+		siteRepoUrl := "https://" + githubToken + "@github.com/" + githubAccount + "/" + clusterId
+		manifestRepoUrl := "https://github.com/" + githubAccount + "/" + clusterId + "-manifests"
 		parameters := []string{
 			"site_name=" + clusterId,
 			"cluster_id=" + clusterId,
@@ -420,7 +419,7 @@ func (s *server) UninstallAppGroups(ctx context.Context, in *pb.UninstallAppGrou
 			continue
 		}
 
-		siteRepoUrl := "https://" + gitToken + "@github.com/" + gitAccount + "/" + clusterId
+		siteRepoUrl := "https://" + githubToken + "@github.com/" + githubAccount + "/" + clusterId
 		parameters := []string{
 			"app_group=" + appGroupName,
 			"site_repo_url=" + siteRepoUrl,
