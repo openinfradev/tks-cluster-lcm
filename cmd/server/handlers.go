@@ -1,14 +1,24 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/openinfradev/tks-common/pkg/log"
 	pb "github.com/openinfradev/tks-proto/tks_pb"
 )
+
+var (
+	filePathAzRegion  = "./az-per-region.txt"
+)
+
+const MAX_SIZE_PER_AZ = 99
 
 func validateCreateClusterRequest(in *pb.CreateClusterRequest) (err error) {
 	if _, err := uuid.Parse(in.GetContractId()); err != nil {
@@ -54,6 +64,105 @@ func validateUninstallAppGroupsRequest(in *pb.UninstallAppGroupsRequest) (err er
 		}
 	}
 	return nil
+}
+
+func constructClusterConf(rawConf *pb.ClusterRawConf) (clusterConf *pb.ClusterConf, err error) {
+	region := "ap-northeast-2"
+	if rawConf != nil && rawConf.Region != "" {
+		region = rawConf.Region
+	}
+
+	numOfAz := 3
+	if rawConf != nil && rawConf.NumOfAz != 0 {
+		numOfAz = int(rawConf.NumOfAz)
+	}
+
+	sshKeyName := "tks-seoul"
+	if rawConf != nil && rawConf.SshKeyName != "" {
+		sshKeyName = rawConf.SshKeyName
+	}
+
+	machineType := "t3.large"
+	if rawConf != nil && rawConf.MachineType != "" {
+		machineType = rawConf.MachineType
+	}
+
+	minSizePerAz := 1
+	maxSizePerAz := 5
+
+	// Check if numOfAz is correct based on pre-defined mapping table
+	maxAzForSelectedRegion := 0
+
+	file, err := os.Open(filePathAzRegion)
+	if err != nil {
+		log.Error(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	var found bool = false
+	for scanner.Scan() {
+		if strings.Contains(scanner.Text(), region) {
+			log.Debug("Found region line: ", scanner.Text())
+			azNum := strings.Split(scanner.Text(), ":")[1]
+			maxAzForSelectedRegion, err = strconv.Atoi(strings.TrimSpace(azNum))
+			if err != nil {
+				log.Error("Error while converting azNum to int var: ", err)
+			}
+			log.Debug("Trimmed azNum var: ", maxAzForSelectedRegion)
+			found = true
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Error("Error while processing file: ", err)
+	}
+	if !found {
+		log.Error("Couldn't find entry for region ", region)
+	}
+
+	if numOfAz > maxAzForSelectedRegion {
+		log.Error("Invalid numOfAz: exceeded the number of Az in region ", region)
+		temp_err := fmt.Errorf("Invalid numOfAz: exceeded the number of Az in region %s", region)
+		return nil, temp_err
+	}
+
+	// Validate if machineReplicas is multiple of number of AZ
+	replicas := int(rawConf.MachineReplicas)
+	if replicas == 0 {
+		log.Debug("No machineReplicas param. Using default values..")
+	} else {
+		if remainder := replicas % numOfAz; remainder != 0 {
+			log.Error("Invalid machineReplicas: it should be multiple of numOfAz ", numOfAz)
+			temp_err := fmt.Errorf("Invalid machineReplicas: it should be multiple of numOfAz %d", numOfAz)
+			return nil, temp_err
+		} else {
+			log.Debug("Valid replicas and numOfAz. Caculating minSize & maxSize..")
+			minSizePerAz = int(replicas / numOfAz)
+			maxSizePerAz = minSizePerAz * 5
+
+			// Validate if maxSizePerAx is within allowed range
+			if maxSizePerAz > MAX_SIZE_PER_AZ {
+				fmt.Printf("maxSizePerAz exceeded maximum value %d, so adjusted to %d", MAX_SIZE_PER_AZ, MAX_SIZE_PER_AZ)
+				maxSizePerAz = MAX_SIZE_PER_AZ
+			}
+			log.Debug("Derived minSizePerAz: ", minSizePerAz)
+			log.Debug("Derived maxSizePerAz: ", maxSizePerAz)
+		}
+	}
+
+	// Construct cluster conf
+	tempConf := pb.ClusterConf{
+		SshKeyName:   sshKeyName,
+		Region:       region,
+		NumOfAz:      int32(numOfAz),
+		MachineType:  machineType,
+		MinSizePerAz: int32(minSizePerAz),
+		MaxSizePerAz: int32(maxSizePerAz),
+	}
+
+	fmt.Printf("Newly constructed cluster conf: %+v\n", &tempConf)
+	return &tempConf, nil
 }
 
 func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest) (*pb.IDResponse, error) {
@@ -105,24 +214,40 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 	// check cluster
 	// Exactly one of those must be provided
 	/*
-		res, err := clusterInfoClient.GetClusters(ctx, &pb.GetClustersRequest{
-			ContractId : in.GetContractId(),
-			CspId : "",
-		})
-		if err == nil {
-			for _, cluster := range res.GetClusters() {
-				if cluster.GetStatus() == pb.ClusterStatus_INSTALLING {
-					log.Info( "Already existed installing workflow. cluster : ", cluster )
-					return &pb.IDResponse{
-						Code: pb.Code_ALREADY_EXISTS,
-						Error: &pb.Error{
-							Msg: fmt.Sprintf("Already existed installing workflow. : %s", cluster.GetName()),
-						},
-					}, nil
-				}
-			}
-		}
+	   res, err := clusterInfoClient.GetClusters(ctx, &pb.GetClustersRequest{
+	     ContractId : in.GetContractId(),
+	     CspId : "",
+	   })
+	   if err == nil {
+	     for _, cluster := range res.GetClusters() {
+	       if cluster.GetStatus() == pb.ClusterStatus_INSTALLING {
+	         log.Info( "Already existed installing workflow. cluster : ", cluster )
+	         return &pb.IDResponse{
+	           Code: pb.Code_ALREADY_EXISTS,
+	           Error: &pb.Error{
+	             Msg: fmt.Sprintf("Already existed installing workflow. : %s", cluster.GetName()),
+	           },
+	         }, nil
+	       }
+	     }
+	   }
 	*/
+
+	/***************************
+	 * Pre-process cluster conf *
+	 ***************************/
+	rawConf := in.GetConf()
+	fmt.Printf("ClusterRawConf: %+v\n", rawConf)
+
+	clConf, err := constructClusterConf(rawConf)
+	if err != nil {
+		return &pb.IDResponse{
+			Code: pb.Code_INTERNAL,
+			Error: &pb.Error{
+				Msg: fmt.Sprint(err),
+			},
+		}, err
+	}
 
 	// create cluster info
 	clusterId := ""
@@ -130,7 +255,7 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 		ContractId: in.GetContractId(),
 		CspId:      in.GetCspId(),
 		Name:       in.GetName(),
-		Conf:       in.GetConf(),
+		Conf:       clConf,
 	})
 	if err != nil {
 		log.Error("Failed to add cluster info. err : ", err)
@@ -142,7 +267,6 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 		}, err
 	}
 	clusterId = resAddClusterInfo.Id
-
 	log.Info("Added cluster in tks-info. clusterId : ", clusterId)
 
 	// create usercluster
@@ -160,6 +284,8 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 		"revision=" + revision,
 	}
 
+	log.Info("Submitting workflow: ", workflow)
+
 	workflowName, err := argowfClient.SumbitWorkflowFromWftpl(ctx, workflow, nameSpace, parameters)
 	if err != nil {
 		log.Error("failed to submit argo workflow template. err : ", err)
@@ -170,7 +296,7 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 			},
 		}, err
 	}
-	log.Debug("submited workflow name : ", workflowName)
+	log.Info("Successfully submited workflow: ", workflowName)
 
 	// update status : INSTALLING
 	if err := s.updateClusterStatus(ctx, clusterId, pb.ClusterStatus_INSTALLING); err != nil {
