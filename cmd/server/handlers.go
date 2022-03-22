@@ -10,55 +10,15 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/openinfradev/tks-common/pkg/argowf"
-	"github.com/openinfradev/tks-common/pkg/grpc_client"
 	"github.com/openinfradev/tks-common/pkg/log"
 	pb "github.com/openinfradev/tks-proto/tks_pb"
 )
 
 var (
-	argowfClient      argowf.Client
-	contractClient    pb.ContractServiceClient
-	cspInfoClient     pb.CspInfoServiceClient
-	clusterInfoClient pb.ClusterInfoServiceClient
-	appInfoClient     pb.AppInfoServiceClient
-
 	filePathAzRegion  = "./az-per-region.txt"
 )
 
 const MAX_SIZE_PER_AZ = 99
-
-// 각 client lifecycle은 서버 종료시까지므로 close는 하지 않는다.
-func InitHandlers(contractAddress string, contractPort int, infoAddress string, infoPort int, argoAddress string, argoPort int) {
-	var err error
-
-	argowfClient, err = argowf.New(argoAddress, argoPort)
-	if err != nil {
-		log.Fatal("failed to create argowf client : ", err)
-	}
-
-	_, contractClient, err = grpc_client.CreateContractClient(contractAddress, contractPort, "tks-cluster-lcm")
-	if err != nil {
-		log.Fatal("failed to create contract client : ", err)
-	}
-
-	_, cspInfoClient, err = grpc_client.CreateCspInfoClient(infoAddress, infoPort, "tks-cluster-lcm")
-	if err != nil {
-		log.Fatal("failed to create cspinfo client : ", err)
-	}
-
-	_, clusterInfoClient, err = grpc_client.CreateClusterInfoClient(infoAddress, infoPort, "tks-cluster-lcm")
-	if err != nil {
-		log.Fatal("failed to create cluster client : ", err)
-	}
-
-	_, appInfoClient, err = grpc_client.CreateAppInfoClient(infoAddress, infoPort, "tks-cluster-lcm")
-	if err != nil {
-		log.Fatal("failed to create appinfo client : ", err)
-	}
-
-	log.Info("All clients created successfully")
-}
 
 func validateCreateClusterRequest(in *pb.CreateClusterRequest) (err error) {
 	if _, err := uuid.Parse(in.GetContractId()); err != nil {
@@ -312,14 +272,14 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 	// create usercluster
 	nameSpace := "argo"
 	workflow := "create-tks-usercluster"
-	manifestRepoUrl := "https://github.com/" + gitAccount + "/" + clusterId + "-manifests"
+	manifestRepoUrl := "https://github.com/" + githubAccount + "/" + clusterId + "-manifests"
 
 	parameters := []string{
 		"contract_id=" + in.GetContractId(),
 		"cluster_id=" + clusterId,
 		"site_name=" + clusterId,
 		"template_name=template-std",
-		"git_account=" + gitAccount,
+		"git_account=" + githubAccount,
 		"manifest_repo_url=" + manifestRepoUrl,
 		"revision=" + revision,
 	}
@@ -490,8 +450,8 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 
 		// Call argo workflow template
 		workflowTemplate := ""
-		siteRepoUrl := "https://" + gitToken + "@github.com/" + gitAccount + "/" + clusterId
-		manifestRepoUrl := "https://github.com/" + gitAccount + "/" + clusterId + "-manifests"
+		siteRepoUrl := "https://" + githubToken + "@github.com/" + githubAccount + "/" + clusterId
+		manifestRepoUrl := "https://github.com/" + githubAccount + "/" + clusterId + "-manifests"
 		parameters := []string{
 			"site_name=" + clusterId,
 			"cluster_id=" + clusterId,
@@ -590,7 +550,7 @@ func (s *server) UninstallAppGroups(ctx context.Context, in *pb.UninstallAppGrou
 			continue
 		}
 
-		siteRepoUrl := "https://" + gitToken + "@github.com/" + gitAccount + "/" + clusterId
+		siteRepoUrl := "https://" + githubToken + "@github.com/" + githubAccount + "/" + clusterId
 		parameters := []string{
 			"app_group=" + appGroupName,
 			"site_repo_url=" + siteRepoUrl,

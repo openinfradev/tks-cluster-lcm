@@ -2,17 +2,34 @@ package main
 
 import (
 	"flag"
-	"net"
 	"os"
-	"strconv"
 
+	"github.com/openinfradev/tks-common/pkg/argowf"
+	"github.com/openinfradev/tks-common/pkg/grpc_client"
+	"github.com/openinfradev/tks-common/pkg/grpc_server"
 	"github.com/openinfradev/tks-common/pkg/log"
 	pb "github.com/openinfradev/tks-proto/tks_pb"
-	"google.golang.org/grpc"
+)
+
+type server struct {
+	pb.UnimplementedClusterLcmServiceServer
+}
+
+var (
+	argowfClient      argowf.Client
+	contractClient    pb.ContractServiceClient
+	cspInfoClient     pb.CspInfoServiceClient
+	clusterInfoClient pb.ClusterInfoServiceClient
+	appInfoClient     pb.AppInfoServiceClient
 )
 
 var (
-	port            int
+	port              int
+	tlsEnabled        bool
+	tlsClientCertPath string
+	tlsCertPath       string
+	tlsKeyPath        string
+
 	contractAddress string
 	contractPort    int
 	infoAddress     string
@@ -20,16 +37,16 @@ var (
 	argoAddress     string
 	argoPort        int
 	revision        string
-	gitAccount      string
-	gitToken        string
+	githubAccount      string
+	githubToken        string
 )
-
-type server struct {
-	pb.UnimplementedClusterLcmServiceServer
-}
 
 func init() {
 	flag.IntVar(&port, "port", 9112, "service port")
+	flag.BoolVar(&tlsEnabled, "tlsEnabled", false, "enabled tls")
+	flag.StringVar(&tlsClientCertPath, "tls-client-cert-path", "../../cert/tks-ca.crt", "path of ca cert file for tls")
+	flag.StringVar(&tlsCertPath, "tls-cert-path", "../../cert/tks-server.crt", "path of cert file for tls")
+	flag.StringVar(&tlsKeyPath, "tls-key-path", "../../cert/tks-server.key", "path of key file for tls")
 	flag.StringVar(&contractAddress, "contract-address", "localhost", "service address for tks-contract")
 	flag.IntVar(&contractPort, "contract-port", 9110, "service port for tks-contract")
 	flag.StringVar(&infoAddress, "info-address", "localhost", "service address for tks-info")
@@ -37,20 +54,19 @@ func init() {
 	flag.StringVar(&argoAddress, "argo-address", "192.168.70.10", "server address for argo-workflow-server")
 	flag.IntVar(&argoPort, "argo-port", 2746, "server port for argo-workflow-server")
 	flag.StringVar(&revision, "revision", "main", "revision for workflow parameter")
-	flag.StringVar(&gitAccount, "repo-name", "tks-management", "git repository name for workflow parameter")
+	flag.StringVar(&githubAccount, "repo-name", "tks-management", "git repository name for workflow parameter")
 
-	gitToken = os.Getenv("TOKEN")
+	githubToken = os.Getenv("TOKEN")
 }
 
 func main() {
-	log.Info("tks-cluster-lcm server is starting...")
 	flag.Parse()
 
-	if gitToken == "" {
-		log.Fatal("Specify gitToken to environment variable (TOKEN).")
-	}
-
-	log.Info("*** Connection Addresses *** ")
+	log.Info("*** Arguments *** ")
+	log.Info("tlsEnabled : ", tlsEnabled)
+	log.Info("tlsClientCertPath : ", tlsClientCertPath)
+	log.Info("tlsCertPath : ", tlsCertPath)
+	log.Info("tlsKeyPath : ", tlsKeyPath)
 	log.Info("contractAddress : ", contractAddress)
 	log.Info("contractPort : ", contractPort)
 	log.Info("infoAddress : ", infoAddress)
@@ -58,21 +74,44 @@ func main() {
 	log.Info("argoAddress : ", argoAddress)
 	log.Info("argoPort : ", argoPort)
 	log.Info("revision : ", revision)
-	log.Info("gitAccount : ", gitAccount)
+	log.Info("githubAccount : ", githubAccount)
+	log.Info("****************** ")
 
-	lis, err := net.Listen("tcp", ":"+strconv.Itoa(port))
-	if err != nil {
-		log.Fatal("an error failed to listen : ", err)
+	if githubToken = os.Getenv("TOKEN"); githubToken == "" {
+		log.Fatal("Specify githubToken to environment variable (TOKEN).")
 	}
-	s := grpc.NewServer()
 
-	log.Info("Started to listen port ", port)
-	log.Info("****************************")
+	// initialize handlers
+	var err error
+	argowfClient, err = argowf.New(argoAddress, argoPort)
+	if err != nil {
+		log.Fatal("failed to create argowf client : ", err)
+	}
 
-	InitHandlers(contractAddress, contractPort, infoAddress, infoPort, argoAddress, argoPort)
+	if _, contractClient, err = grpc_client.CreateContractClient(contractAddress, contractPort, tlsEnabled, tlsClientCertPath); err != nil {
+		log.Fatal("failed to create contract client : ", err)
+	}
+
+	if _, cspInfoClient, err = grpc_client.CreateCspInfoClient(infoAddress, infoPort, tlsEnabled, tlsClientCertPath); err != nil {
+		log.Fatal("failed to create cspinfo client : ", err)
+	}
+
+	if _, clusterInfoClient, err = grpc_client.CreateClusterInfoClient(infoAddress, infoPort, tlsEnabled, tlsClientCertPath); err != nil {
+		log.Fatal("failed to create cluster client : ", err)
+	}
+
+	if _, appInfoClient, err = grpc_client.CreateAppInfoClient(infoAddress, infoPort, tlsEnabled, tlsClientCertPath); err != nil {
+		log.Fatal("failed to create appinfo client : ", err)
+	}
+
+	// start server
+	s, conn, err := grpc_server.CreateServer(port, tlsEnabled, tlsCertPath, tlsKeyPath)
+	if err != nil {
+		log.Fatal("failed to crate grpc_server : ", err)
+	}
 
 	pb.RegisterClusterLcmServiceServer(s, &server{})
-	if err := s.Serve(lis); err != nil {
+	if err := s.Serve(conn); err != nil {
 		log.Fatal("failed to serve: ", err)
 	}
 }
