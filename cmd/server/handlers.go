@@ -22,6 +22,8 @@ var (
 	cspInfoClient     pb.CspInfoServiceClient
 	clusterInfoClient pb.ClusterInfoServiceClient
 	appInfoClient     pb.AppInfoServiceClient
+
+	filePathAzRegion  = "./az-per-region.txt"
 )
 
 const MAX_SIZE_PER_AZ = 99
@@ -131,7 +133,7 @@ func constructClusterConf(rawConf *pb.ClusterRawConf) (clusterConf *pb.ClusterCo
 	// Check if numOfAz is correct based on pre-defined mapping table
 	maxAzForSelectedRegion := 0
 
-	file, err := os.Open("./az-per-region.txt")
+	file, err := os.Open(filePathAzRegion)
 	if err != nil {
 		log.Error(err)
 	}

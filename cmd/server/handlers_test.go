@@ -30,6 +30,9 @@ var (
 func init() {
 	log.Disable()
 
+	// override for test
+	filePathAzRegion  = "../../files/az-per-region.txt"
+
 	// for CreateCluster API
 	installAppGroupsRequest = randomInstallAppGroupsRequest()
 	createClusterRequest = randomCreateClusterRequest()
