@@ -37,8 +37,8 @@ var (
 	argoAddress     string
 	argoPort        int
 	revision        string
-	githubAccount      string
-	githubToken        string
+	githubAccount   string
+	githubToken     string
 )
 
 func init() {
@@ -81,7 +81,7 @@ func main() {
 		log.Fatal("Specify githubToken to environment variable (TOKEN).")
 	}
 
-	// initialize handlers
+	// initialize clients
 	var err error
 	argowfClient, err = argowf.New(argoAddress, argoPort)
 	if err != nil {
