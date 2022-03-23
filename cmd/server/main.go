@@ -43,7 +43,7 @@ var (
 
 func init() {
 	flag.IntVar(&port, "port", 9112, "service port")
-	flag.BoolVar(&tlsEnabled, "tlsEnabled", false, "enabled tls")
+	flag.BoolVar(&tlsEnabled, "tls-enabled", false, "enabled tls")
 	flag.StringVar(&tlsClientCertPath, "tls-client-cert-path", "../../cert/tks-ca.crt", "path of ca cert file for tls")
 	flag.StringVar(&tlsCertPath, "tls-cert-path", "../../cert/tks-server.crt", "path of cert file for tls")
 	flag.StringVar(&tlsKeyPath, "tls-key-path", "../../cert/tks-server.key", "path of key file for tls")
@@ -54,7 +54,7 @@ func init() {
 	flag.StringVar(&argoAddress, "argo-address", "192.168.70.10", "server address for argo-workflow-server")
 	flag.IntVar(&argoPort, "argo-port", 2746, "server port for argo-workflow-server")
 	flag.StringVar(&revision, "revision", "main", "revision for workflow parameter")
-	flag.StringVar(&githubAccount, "repo-name", "tks-management", "git repository name for workflow parameter")
+	flag.StringVar(&githubAccount, "git-account", "tks-management", "git repository name for workflow parameter")
 
 	githubToken = os.Getenv("TOKEN")
 }
