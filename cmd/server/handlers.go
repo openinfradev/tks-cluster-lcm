@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	filePathAzRegion  = "./az-per-region.txt"
+	filePathAzRegion = "./az-per-region.txt"
 )
 
 const MAX_SIZE_PER_AZ = 99
@@ -75,6 +75,12 @@ func constructClusterConf(rawConf *pb.ClusterRawConf) (clusterConf *pb.ClusterCo
 	numOfAz := 3
 	if rawConf != nil && rawConf.NumOfAz != 0 {
 		numOfAz = int(rawConf.NumOfAz)
+
+		if numOfAz > 3 {
+			log.Error("Error: numOfAz cannot exceed 3.")
+			temp_err := fmt.Errorf("Error: numOfAz cannot exceed 3.")
+			return nil, temp_err
+		}
 	}
 
 	sshKeyName := "tks-seoul"
@@ -470,7 +476,6 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 		case pb.AppGroupType_LMA_EFK:
 			workflowTemplate = "tks-lma-federation"
 			parameters = append(parameters, "logging_component=efk")
-
 
 		case pb.AppGroupType_SERVICE_MESH:
 			workflowTemplate = "tks-service-mesh"
