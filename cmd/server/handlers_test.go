@@ -31,7 +31,7 @@ func init() {
 	log.Disable()
 
 	// override for test
-	filePathAzRegion  = "../../files/az-per-region.txt"
+	filePathAzRegion = "../../files/az-per-region.txt"
 
 	// for CreateCluster API
 	installAppGroupsRequest = randomInstallAppGroupsRequest()
@@ -39,6 +39,10 @@ func init() {
 }
 
 func TestCreateCluster(t *testing.T) {
+	requestEmptyContractId := randomCreateClusterRequest()
+	requestEmptyContractId.ContractId = ""
+	requestEmptyContractId.CspId = ""
+
 	testCases := []struct {
 		name       string
 		in         *pb.CreateClusterRequest
@@ -92,6 +96,76 @@ func TestCreateCluster(t *testing.T) {
 			checkResponse: func(req *pb.CreateClusterRequest, res *pb.IDResponse, err error) {
 				require.NoError(t, err)
 				require.Equal(t, res.Code, pb.Code_OK_UNSPECIFIED)
+			},
+		},
+		{
+			name: "OK_EMPTY_CONTRACT_ID",
+			in:   requestEmptyContractId,
+			buildStubs: func(mockArgoClient *mockargo.MockClient,
+				mockCspInfoClient *mocktks.MockCspInfoServiceClient,
+				mockClusterInfoClient *mocktks.MockClusterInfoServiceClient,
+				mockContractClient *mocktks.MockContractServiceClient) {
+
+				mockContractClient.EXPECT().GetDefaultContract(gomock.Any(), gomock.Any()).Times(1).
+					Return(
+						&pb.GetContractResponse{
+							Code:  pb.Code_OK_UNSPECIFIED,
+							Error: nil,
+							Contract: &pb.Contract{
+								ContractId: uuid.New().String(),
+								CspId:      uuid.New().String(),
+							},
+						}, nil)
+
+				mockCspInfoClient.EXPECT().GetCSPIDsByContractID(gomock.Any(), gomock.Any()).Times(1).
+					Return(
+						&pb.IDsResponse{
+							Code:  pb.Code_OK_UNSPECIFIED,
+							Error: nil,
+							Ids:   []string{uuid.New().String()},
+						}, nil)
+
+				mockClusterInfoClient.EXPECT().AddClusterInfo(gomock.Any(), gomock.Any()).Times(1).
+					Return(
+						&pb.IDResponse{
+							Code:  pb.Code_OK_UNSPECIFIED,
+							Error: nil,
+							Id:    createdClusterId,
+						}, nil)
+
+				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
+					Return(randomString("workflowName"), nil)
+
+				mockClusterInfoClient.EXPECT().UpdateClusterStatus(gomock.Any(), gomock.Any()).Times(1).
+					Return(
+						&pb.SimpleResponse{
+							Code:  pb.Code_OK_UNSPECIFIED,
+							Error: nil,
+						}, nil)
+			},
+			checkResponse: func(req *pb.CreateClusterRequest, res *pb.IDResponse, err error) {
+				require.NoError(t, err)
+				require.Equal(t, res.Code, pb.Code_OK_UNSPECIFIED)
+			},
+		},
+		{
+			name: "NO_DEFAULT_CONTRACT",
+			in:   requestEmptyContractId,
+			buildStubs: func(mockArgoClient *mockargo.MockClient,
+				mockCspInfoClient *mocktks.MockCspInfoServiceClient,
+				mockClusterInfoClient *mocktks.MockClusterInfoServiceClient,
+				mockContractClient *mocktks.MockContractServiceClient) {
+
+				mockContractClient.EXPECT().GetDefaultContract(gomock.Any(), gomock.Any()).Times(1).
+					Return(
+						&pb.GetContractResponse{
+							Code:  pb.Code_OK_UNSPECIFIED,
+							Error: nil,
+						}, errors.New("NO_DATA_DEFAULT_CONTRACT"))
+			},
+			checkResponse: func(req *pb.CreateClusterRequest, res *pb.IDResponse, err error) {
+				require.Error(t, err)
+				require.Equal(t, res.Code, pb.Code_NOT_FOUND)
 			},
 		},
 		{

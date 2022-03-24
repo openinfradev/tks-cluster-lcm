@@ -9,7 +9,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/google/uuid"
+
 	"github.com/openinfradev/tks-common/pkg/log"
 	pb "github.com/openinfradev/tks-proto/tks_pb"
 )
@@ -21,12 +23,15 @@ var (
 const MAX_SIZE_PER_AZ = 99
 
 func validateCreateClusterRequest(in *pb.CreateClusterRequest) (err error) {
-	if _, err := uuid.Parse(in.GetContractId()); err != nil {
-		return fmt.Errorf("invalid contract ID %s", in.GetContractId())
+	if in.GetContractId() != "" {
+		if _, err := uuid.Parse(in.GetContractId()); err != nil {
+			return fmt.Errorf("invalid contract ID %s", in.GetContractId())
+		}
+		if _, err := uuid.Parse(in.GetCspId()); err != nil {
+			return fmt.Errorf("invalid CSP ID %s", in.GetCspId())
+		}
 	}
-	if _, err := uuid.Parse(in.GetCspId()); err != nil {
-		return fmt.Errorf("invalid CSP ID %s", in.GetCspId())
-	}
+
 	if in.GetName() == "" {
 		return errors.New("Name must have value ")
 	}
@@ -174,7 +179,6 @@ func constructClusterConf(rawConf *pb.ClusterRawConf) (clusterConf *pb.ClusterCo
 func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest) (*pb.IDResponse, error) {
 	log.Info("Request 'CreateCluster' for contractId : ", in.GetContractId())
 
-	// [TODO] validation refactoring
 	if err := validateCreateClusterRequest(in); err != nil {
 		return &pb.IDResponse{
 			Code: pb.Code_INVALID_ARGUMENT,
@@ -184,37 +188,68 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 		}, err
 	}
 
-	// check contract
-	if _, err := contractClient.GetContract(ctx, &pb.GetContractRequest{ContractId: in.GetContractId()}); err != nil {
-		log.Error("Failed to get contract info err : ", err)
-		return &pb.IDResponse{
-			Code: pb.Code_NOT_FOUND,
-			Error: &pb.Error{
-				Msg: fmt.Sprintf("Invalid contract Id %s", in.GetContractId()),
-			},
-		}, err
-	}
+	contractId := in.GetContractId()
+	cspId := in.GetCspId()
 
-	// check csp
-	cspInfo, err := cspInfoClient.GetCSPInfo(ctx, &pb.IDRequest{Id: in.GetCspId()})
-	if err != nil {
-		log.Error("Failed to get csp info err : ", err)
-		return &pb.IDResponse{
-			Code: pb.Code_NOT_FOUND,
-			Error: &pb.Error{
-				Msg: fmt.Sprintf("Invalid CSP Id %s", in.GetCspId()),
-			},
-		}, err
-	}
+	// get default contract if contractId is empty
+	if contractId == "" {
+		contract, err := s.getDefaultContract(ctx)
+		if err != nil {
+			log.Error("Failed to get default contract. err : ", err)
+			return &pb.IDResponse{
+				Code: pb.Code_NOT_FOUND,
+				Error: &pb.Error{
+					Msg: "Failed to get default contract",
+				},
+			}, err
+		}
+		contractId = contract.GetContractId()
 
-	if cspInfo.GetContractId() != in.GetContractId() {
-		log.Error("Invalid contractId by cspId : ", cspInfo.GetContractId())
-		return &pb.IDResponse{
-			Code: pb.Code_NOT_FOUND,
-			Error: &pb.Error{
-				Msg: fmt.Sprintf("ContractId and CSP Id do not match. expected contractId : %s", cspInfo.GetContractId()),
-			},
-		}, err
+		res, err := cspInfoClient.GetCSPIDsByContractID(ctx, &pb.IDRequest{Id: contractId})
+		if err != nil || len(res.Ids) == 0 {
+			log.Error("Failed to get csp ids by contractId err : ", err)
+			return &pb.IDResponse{
+				Code: pb.Code_NOT_FOUND,
+				Error: &pb.Error{
+					Msg: fmt.Sprintf("Invalid CSP Id %s", cspId),
+				},
+			}, err
+		}
+
+		// [TODO] Support AWS only!!!
+		cspId = res.Ids[0]
+	} else {
+		// check contract
+		if _, err := contractClient.GetContract(ctx, &pb.GetContractRequest{ContractId: contractId}); err != nil {
+			log.Error("Failed to get contract info err : ", err)
+			return &pb.IDResponse{
+				Code: pb.Code_NOT_FOUND,
+				Error: &pb.Error{
+					Msg: fmt.Sprintf("Invalid contract Id %s", contractId),
+				},
+			}, err
+		}
+
+		// check csp
+		cspInfo, err := cspInfoClient.GetCSPInfo(ctx, &pb.IDRequest{Id: cspId})
+		if err != nil {
+			log.Error("Failed to get csp info err : ", err)
+			return &pb.IDResponse{
+				Code: pb.Code_NOT_FOUND,
+				Error: &pb.Error{
+					Msg: fmt.Sprintf("Invalid CSP Id %s", cspId),
+				},
+			}, err
+		}
+		if cspInfo.GetContractId() != contractId {
+			log.Error("Invalid contractId by cspId : ", cspInfo.GetContractId())
+			return &pb.IDResponse{
+				Code: pb.Code_NOT_FOUND,
+				Error: &pb.Error{
+					Msg: fmt.Sprintf("ContractId and CSP Id do not match. expected contractId : %s", cspInfo.GetContractId()),
+				},
+			}, err
+		}
 	}
 
 	// check cluster
@@ -258,8 +293,8 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 	// create cluster info
 	clusterId := ""
 	resAddClusterInfo, err := clusterInfoClient.AddClusterInfo(ctx, &pb.AddClusterInfoRequest{
-		ContractId: in.GetContractId(),
-		CspId:      in.GetCspId(),
+		ContractId: contractId,
+		CspId:      cspId,
 		Name:       in.GetName(),
 		Conf:       clConf,
 	})
@@ -281,7 +316,7 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 	manifestRepoUrl := "https://github.com/" + githubAccount + "/" + clusterId + "-manifests"
 
 	parameters := []string{
-		"contract_id=" + in.GetContractId(),
+		"contract_id=" + contractId,
 		"cluster_id=" + clusterId,
 		"site_name=" + clusterId,
 		"template_name=template-std",
@@ -608,4 +643,14 @@ func (s *server) updateAppGroupStatus(ctx context.Context, appGroupId string, st
 	}
 
 	return nil
+}
+
+func (s *server) getDefaultContract(ctx context.Context) (*pb.Contract, error) {
+	resContract, err := contractClient.GetDefaultContract(ctx, &empty.Empty{})
+	if err != nil {
+		log.Error("Failed to get contract info err : ", err)
+		return nil, err
+	}
+
+	return resContract.GetContract(), nil
 }
