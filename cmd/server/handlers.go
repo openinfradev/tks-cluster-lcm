@@ -535,7 +535,7 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 		appGroupIds = append(appGroupIds, appGroupId)
 	}
 
-	log.Info("completed installation. appGroupIds : ", appGroupIds)
+	log.Info("Successfully submitted installation workflow. appGroupIds: ", appGroupIds)
 
 	return &pb.IDsResponse{
 		Code:  pb.Code_OK_UNSPECIFIED,
