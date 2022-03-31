@@ -344,7 +344,7 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 		log.Error("Failed to update cluster status to 'INSTALLING'")
 	}
 
-	log.Info("cluster successfully created. clusterId : ", clusterId)
+	log.Info("Successfully initiated user-cluster creation. clusterId: ", clusterId)
 	return &pb.IDResponse{
 		Code:  pb.Code_OK_UNSPECIFIED,
 		Error: nil,
