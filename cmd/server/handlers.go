@@ -344,7 +344,7 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 		log.Error("Failed to update cluster status to 'INSTALLING'")
 	}
 
-	log.Info("cluster successfully created. clusterId : ", clusterId)
+	log.Info("Successfully initiated user-cluster creation. clusterId: ", clusterId)
 	return &pb.IDResponse{
 		Code:  pb.Code_OK_UNSPECIFIED,
 		Error: nil,
@@ -491,12 +491,11 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 
 		// Call argo workflow template
 		workflowTemplate := ""
-		siteRepoUrl := "https://" + githubToken + "@github.com/" + githubAccount + "/" + clusterId
 		manifestRepoUrl := "https://github.com/" + githubAccount + "/" + clusterId + "-manifests"
 		parameters := []string{
 			"site_name=" + clusterId,
 			"cluster_id=" + clusterId,
-			"site_repo_url=" + siteRepoUrl,
+			"github_account=" + githubAccount,
 			"manifest_repo_url=" + manifestRepoUrl,
 			"revision=" + revision,
 			"app_group_id=" + appGroupId,
@@ -590,10 +589,9 @@ func (s *server) UninstallAppGroups(ctx context.Context, in *pb.UninstallAppGrou
 			continue
 		}
 
-		siteRepoUrl := "https://" + githubToken + "@github.com/" + githubAccount + "/" + clusterId
 		parameters := []string{
 			"app_group=" + appGroupName,
-			"site_repo_url=" + siteRepoUrl,
+			"github_account=" + githubAccount,
 			"tks_info_host=tks-info.tks.svc",
 			"cluster_id=" + clusterId,
 			"app_group_id=" + appGroupId,
