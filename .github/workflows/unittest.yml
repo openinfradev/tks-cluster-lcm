@@ -2,11 +2,11 @@ on:
   push:
     branches:
       - main
+      - 'release**'
   pull_request:
     branches:
       - main
-
-
+      - 'release**'
 jobs:
     unittest:
         runs-on: ubuntu-latest
