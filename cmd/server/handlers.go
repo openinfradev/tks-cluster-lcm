@@ -343,6 +343,7 @@ func (s *server) ScaleCluster(ctx context.Context, in *pb.ScaleClusterRequest) (
 func (s *server) DeleteCluster(ctx context.Context, in *pb.IDRequest) (*pb.SimpleResponse, error) {
 	log.Info("Request 'DeleteCluster' for clusterId : ", in.GetId())
 
+	// Validation : check request
 	if err := validateDeleteClusterRequest(in); err != nil {
 		return &pb.SimpleResponse{
 			Code: pb.Code_INVALID_ARGUMENT,
@@ -353,6 +354,8 @@ func (s *server) DeleteCluster(ctx context.Context, in *pb.IDRequest) (*pb.Simpl
 	}
 	clusterId := in.GetId()
 
+	// Validation : check cluster status
+	// The cluster status must be (RUNNING|ERROR).
 	res, err := clusterInfoClient.GetCluster(ctx, &pb.GetClusterRequest{ClusterId: clusterId})
 	if err != nil {
 		log.Error("Failed to get cluster info err : ", err)
@@ -363,15 +366,32 @@ func (s *server) DeleteCluster(ctx context.Context, in *pb.IDRequest) (*pb.Simpl
 			},
 		}, err
 	}
-
-	if res.GetCluster().GetStatus() == pb.ClusterStatus_DELETING || res.GetCluster().GetStatus() == pb.ClusterStatus_DELETED {
-		log.Error("The cluster has been already deleted. status : ", res.GetCluster().GetStatus())
+	if res.GetCluster().GetStatus() != pb.ClusterStatus_RUNNING &&
+		res.GetCluster().GetStatus() != pb.ClusterStatus_ERROR {
 		return &pb.SimpleResponse{
-			Code: pb.Code_NOT_FOUND,
+			Code: pb.Code_INVALID_ARGUMENT,
 			Error: &pb.Error{
-				Msg: fmt.Sprintf("Could not find cluster with ID. %s", clusterId),
+				Msg: fmt.Sprintf("The cluster can not be deleted. cluster status : %s", res.GetCluster().GetStatus()),
 			},
-		}, fmt.Errorf("Could not find cluster with ID. %s", clusterId)
+		}, fmt.Errorf("The cluster can not be deleted. cluster status : %s", res.GetCluster().GetStatus())
+	}
+
+	// Validation : check appgroup status
+	resAppGroups, err := appInfoClient.GetAppGroupsByClusterID(ctx, &pb.IDRequest{
+		Id: clusterId,
+	})
+	if err == nil && resAppGroups.Code == pb.Code_OK_UNSPECIFIED {
+		for _, resAppGroup := range resAppGroups.GetAppGroups() {
+			if resAppGroup.GetStatus() != pb.AppGroupStatus_APP_GROUP_DELETED &&
+				resAppGroup.GetStatus() != pb.AppGroupStatus_APP_GROUP_ERROR {
+				return &pb.SimpleResponse{
+					Code: pb.Code_INVALID_ARGUMENT,
+					Error: &pb.Error{
+						Msg: fmt.Sprintf("Undeleted services remain. %s", resAppGroup.GetAppGroupId()),
+					},
+				}, fmt.Errorf("Undeleted services remain. %s", resAppGroup.GetAppGroupId())
+			}
+		}
 	}
 
 	nameSpace := "argo"
