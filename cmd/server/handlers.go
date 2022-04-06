@@ -382,8 +382,7 @@ func (s *server) DeleteCluster(ctx context.Context, in *pb.IDRequest) (*pb.Simpl
 	})
 	if err == nil && resAppGroups.Code == pb.Code_OK_UNSPECIFIED {
 		for _, resAppGroup := range resAppGroups.GetAppGroups() {
-			if resAppGroup.GetStatus() != pb.AppGroupStatus_APP_GROUP_DELETED &&
-				resAppGroup.GetStatus() != pb.AppGroupStatus_APP_GROUP_ERROR {
+			if resAppGroup.GetStatus() != pb.AppGroupStatus_APP_GROUP_DELETED {
 				return &pb.SimpleResponse{
 					Code: pb.Code_INVALID_ARGUMENT,
 					Error: &pb.Error{
