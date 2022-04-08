@@ -374,7 +374,7 @@ func TestDeleteCluster(t *testing.T) {
 	testCases := []struct {
 		name          string
 		in            *pb.IDRequest
-		buildStubs    func(mockArgoClient *mockargo.MockClient, mockClusterInfoClient *mocktks.MockClusterInfoServiceClient)
+		buildStubs    func(mockArgoClient *mockargo.MockClient, mockClusterInfoClient *mocktks.MockClusterInfoServiceClient, mockAppInfoClient *mocktks.MockAppInfoServiceClient)
 		checkResponse func(req *pb.IDRequest, res *pb.SimpleResponse, err error)
 	}{
 		{
@@ -383,13 +383,25 @@ func TestDeleteCluster(t *testing.T) {
 				Id: createdClusterId,
 			},
 			buildStubs: func(mockArgoClient *mockargo.MockClient,
-				mockClusterInfoClient *mocktks.MockClusterInfoServiceClient) {
+				mockClusterInfoClient *mocktks.MockClusterInfoServiceClient,
+				mockAppInfoClient *mocktks.MockAppInfoServiceClient) {
 
 				mockClusterInfoClient.EXPECT().GetCluster(gomock.Any(), gomock.Any()).Times(1).
 					Return(
 						&pb.GetClusterResponse{
 							Code:  pb.Code_OK_UNSPECIFIED,
 							Error: nil,
+							Cluster: &pb.Cluster{
+								Status: pb.ClusterStatus_RUNNING,
+							},
+						}, nil)
+
+				mockAppInfoClient.EXPECT().GetAppGroupsByClusterID(gomock.Any(), gomock.Any()).Times(1).
+					Return(
+						&pb.GetAppGroupsResponse{
+							Code:      pb.Code_OK_UNSPECIFIED,
+							Error:     nil,
+							AppGroups: []*pb.AppGroup{},
 						}, nil)
 
 				mockClusterInfoClient.EXPECT().UpdateClusterStatus(gomock.Any(), gomock.Any()).Times(1).
@@ -412,7 +424,7 @@ func TestDeleteCluster(t *testing.T) {
 			in: &pb.IDRequest{
 				Id: "THIS_IS_NOT_UUID",
 			},
-			buildStubs: func(mockArgoClient *mockargo.MockClient, mockClusterInfoClient *mocktks.MockClusterInfoServiceClient) {
+			buildStubs: func(mockArgoClient *mockargo.MockClient, mockClusterInfoClient *mocktks.MockClusterInfoServiceClient, mockAppInfoClient *mocktks.MockAppInfoServiceClient) {
 			},
 			checkResponse: func(req *pb.IDRequest, res *pb.SimpleResponse, err error) {
 				require.Error(t, err)
@@ -424,7 +436,7 @@ func TestDeleteCluster(t *testing.T) {
 			in: &pb.IDRequest{
 				Id: uuid.New().String(),
 			},
-			buildStubs: func(mockArgoClient *mockargo.MockClient, mockClusterInfoClient *mocktks.MockClusterInfoServiceClient) {
+			buildStubs: func(mockArgoClient *mockargo.MockClient, mockClusterInfoClient *mocktks.MockClusterInfoServiceClient, mockAppInfoClient *mocktks.MockAppInfoServiceClient) {
 				mockClusterInfoClient.EXPECT().GetCluster(gomock.Any(), gomock.Any()).Times(1).
 					Return(
 						&pb.GetClusterResponse{
@@ -442,7 +454,7 @@ func TestDeleteCluster(t *testing.T) {
 			in: &pb.IDRequest{
 				Id: uuid.New().String(),
 			},
-			buildStubs: func(mockArgoClient *mockargo.MockClient, mockClusterInfoClient *mocktks.MockClusterInfoServiceClient) {
+			buildStubs: func(mockArgoClient *mockargo.MockClient, mockClusterInfoClient *mocktks.MockClusterInfoServiceClient, mockAppInfoClient *mocktks.MockAppInfoServiceClient) {
 				mockClusterInfoClient.EXPECT().GetCluster(gomock.Any(), gomock.Any()).Times(1).
 					Return(
 						&pb.GetClusterResponse{
@@ -455,7 +467,7 @@ func TestDeleteCluster(t *testing.T) {
 			},
 			checkResponse: func(req *pb.IDRequest, res *pb.SimpleResponse, err error) {
 				require.Error(t, err)
-				require.Equal(t, res.Code, pb.Code_NOT_FOUND)
+				require.Equal(t, res.Code, pb.Code_INVALID_ARGUMENT)
 			},
 		},
 		{
@@ -463,12 +475,22 @@ func TestDeleteCluster(t *testing.T) {
 			in: &pb.IDRequest{
 				Id: uuid.New().String(),
 			},
-			buildStubs: func(mockArgoClient *mockargo.MockClient, mockClusterInfoClient *mocktks.MockClusterInfoServiceClient) {
+			buildStubs: func(mockArgoClient *mockargo.MockClient, mockClusterInfoClient *mocktks.MockClusterInfoServiceClient, mockAppInfoClient *mocktks.MockAppInfoServiceClient) {
 				mockClusterInfoClient.EXPECT().GetCluster(gomock.Any(), gomock.Any()).Times(1).
 					Return(
 						&pb.GetClusterResponse{
 							Code:  pb.Code_OK_UNSPECIFIED,
 							Error: nil,
+							Cluster: &pb.Cluster{
+								Status: pb.ClusterStatus_RUNNING,
+							},
+						}, nil)
+				mockAppInfoClient.EXPECT().GetAppGroupsByClusterID(gomock.Any(), gomock.Any()).Times(1).
+					Return(
+						&pb.GetAppGroupsResponse{
+							Code:      pb.Code_OK_UNSPECIFIED,
+							Error:     nil,
+							AppGroups: []*pb.AppGroup{},
 						}, nil)
 				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
 					Return(randomString("workflowName"), errors.New("FAILED_TO_CALL_WORKFLOW"))
@@ -476,6 +498,60 @@ func TestDeleteCluster(t *testing.T) {
 			checkResponse: func(req *pb.IDRequest, res *pb.SimpleResponse, err error) {
 				require.Error(t, err)
 				require.Equal(t, res.Code, pb.Code_INTERNAL)
+			},
+		},
+		{
+			name: "CLUSTER_STATUS_IS_NOT_RUNNING",
+			in: &pb.IDRequest{
+				Id: uuid.New().String(),
+			},
+			buildStubs: func(mockArgoClient *mockargo.MockClient, mockClusterInfoClient *mocktks.MockClusterInfoServiceClient, mockAppInfoClient *mocktks.MockAppInfoServiceClient) {
+				mockClusterInfoClient.EXPECT().GetCluster(gomock.Any(), gomock.Any()).Times(1).
+					Return(
+						&pb.GetClusterResponse{
+							Code:  pb.Code_OK_UNSPECIFIED,
+							Error: nil,
+							Cluster: &pb.Cluster{
+								Status: pb.ClusterStatus_INSTALLING,
+							},
+						}, nil)
+			},
+			checkResponse: func(req *pb.IDRequest, res *pb.SimpleResponse, err error) {
+				require.Error(t, err)
+				require.Equal(t, res.Code, pb.Code_INVALID_ARGUMENT)
+			},
+		},
+		{
+			name: "APPGROUP_STATUS_IS_NOT_DELETED",
+			in: &pb.IDRequest{
+				Id: uuid.New().String(),
+			},
+			buildStubs: func(mockArgoClient *mockargo.MockClient, mockClusterInfoClient *mocktks.MockClusterInfoServiceClient, mockAppInfoClient *mocktks.MockAppInfoServiceClient) {
+				mockClusterInfoClient.EXPECT().GetCluster(gomock.Any(), gomock.Any()).Times(1).
+					Return(
+						&pb.GetClusterResponse{
+							Code:  pb.Code_OK_UNSPECIFIED,
+							Error: nil,
+							Cluster: &pb.Cluster{
+								Status: pb.ClusterStatus_RUNNING,
+							},
+						}, nil)
+
+				mockAppInfoClient.EXPECT().GetAppGroupsByClusterID(gomock.Any(), gomock.Any()).Times(1).
+					Return(
+						&pb.GetAppGroupsResponse{
+							Code:  pb.Code_OK_UNSPECIFIED,
+							Error: nil,
+							AppGroups: []*pb.AppGroup{
+								{
+									Status: pb.AppGroupStatus_APP_GROUP_DELETING,
+								},
+							},
+						}, nil)
+			},
+			checkResponse: func(req *pb.IDRequest, res *pb.SimpleResponse, err error) {
+				require.Error(t, err)
+				require.Equal(t, res.Code, pb.Code_INVALID_ARGUMENT)
 			},
 		},
 	}
@@ -496,8 +572,10 @@ func TestDeleteCluster(t *testing.T) {
 
 			mockClusterInfoClient := mocktks.NewMockClusterInfoServiceClient(ctrl)
 			clusterInfoClient = mockClusterInfoClient
+			mockAppInfoClient := mocktks.NewMockAppInfoServiceClient(ctrl)
+			appInfoClient = mockAppInfoClient
 
-			tc.buildStubs(mockArgoClient, mockClusterInfoClient)
+			tc.buildStubs(mockArgoClient, mockClusterInfoClient, mockAppInfoClient)
 
 			s := server{}
 			res, err := s.DeleteCluster(ctx, tc.in)
@@ -965,7 +1043,7 @@ func randomInstallAppGroupsRequest() *pb.InstallAppGroupsRequest {
 				AppGroupName:  randomString("APPGROUP"),
 				Type:          pb.AppGroupType_LMA,
 				ClusterId:     uuid.New().String(),
-				Status:        pb.AppGroupStatus_APP_GROUP_UNSPECIFIED,
+				Status:        pb.AppGroupStatus_APP_GROUP_RUNNING,
 				ExternalLabel: randomString("EXTERNAL_LABEL"),
 			},
 		},

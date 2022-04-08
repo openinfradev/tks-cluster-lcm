@@ -252,28 +252,6 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 		}
 	}
 
-	// check cluster
-	// Exactly one of those must be provided
-	/*
-	   res, err := clusterInfoClient.GetClusters(ctx, &pb.GetClustersRequest{
-	     ContractId : in.GetContractId(),
-	     CspId : "",
-	   })
-	   if err == nil {
-	     for _, cluster := range res.GetClusters() {
-	       if cluster.GetStatus() == pb.ClusterStatus_INSTALLING {
-	         log.Info( "Already existed installing workflow. cluster : ", cluster )
-	         return &pb.IDResponse{
-	           Code: pb.Code_ALREADY_EXISTS,
-	           Error: &pb.Error{
-	             Msg: fmt.Sprintf("Already existed installing workflow. : %s", cluster.GetName()),
-	           },
-	         }, nil
-	       }
-	     }
-	   }
-	*/
-
 	/***************************
 	 * Pre-process cluster conf *
 	 ***************************/
@@ -327,7 +305,7 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 
 	log.Info("Submitting workflow: ", workflow)
 
-	workflowName, err := argowfClient.SumbitWorkflowFromWftpl(ctx, workflow, nameSpace, parameters)
+	workflowId, err := argowfClient.SumbitWorkflowFromWftpl(ctx, workflow, nameSpace, parameters)
 	if err != nil {
 		log.Error("failed to submit argo workflow template. err : ", err)
 		return &pb.IDResponse{
@@ -337,10 +315,10 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 			},
 		}, err
 	}
-	log.Info("Successfully submited workflow: ", workflowName)
+	log.Info("Successfully submited workflow: ", workflowId)
 
 	// update status : INSTALLING
-	if err := s.updateClusterStatus(ctx, clusterId, pb.ClusterStatus_INSTALLING); err != nil {
+	if err := s.updateClusterStatusWithWorkflowId(ctx, clusterId, pb.ClusterStatus_INSTALLING, workflowId); err != nil {
 		log.Error("Failed to update cluster status to 'INSTALLING'")
 	}
 
@@ -365,6 +343,7 @@ func (s *server) ScaleCluster(ctx context.Context, in *pb.ScaleClusterRequest) (
 func (s *server) DeleteCluster(ctx context.Context, in *pb.IDRequest) (*pb.SimpleResponse, error) {
 	log.Info("Request 'DeleteCluster' for clusterId : ", in.GetId())
 
+	// Validation : check request
 	if err := validateDeleteClusterRequest(in); err != nil {
 		return &pb.SimpleResponse{
 			Code: pb.Code_INVALID_ARGUMENT,
@@ -375,6 +354,8 @@ func (s *server) DeleteCluster(ctx context.Context, in *pb.IDRequest) (*pb.Simpl
 	}
 	clusterId := in.GetId()
 
+	// Validation : check cluster status
+	// The cluster status must be (RUNNING|ERROR).
 	res, err := clusterInfoClient.GetCluster(ctx, &pb.GetClusterRequest{ClusterId: clusterId})
 	if err != nil {
 		log.Error("Failed to get cluster info err : ", err)
@@ -385,15 +366,31 @@ func (s *server) DeleteCluster(ctx context.Context, in *pb.IDRequest) (*pb.Simpl
 			},
 		}, err
 	}
-
-	if res.GetCluster().GetStatus() == pb.ClusterStatus_DELETING || res.GetCluster().GetStatus() == pb.ClusterStatus_DELETED {
-		log.Error("The cluster has been already deleted. status : ", res.GetCluster().GetStatus())
+	if res.GetCluster().GetStatus() != pb.ClusterStatus_RUNNING &&
+		res.GetCluster().GetStatus() != pb.ClusterStatus_ERROR {
 		return &pb.SimpleResponse{
-			Code: pb.Code_NOT_FOUND,
+			Code: pb.Code_INVALID_ARGUMENT,
 			Error: &pb.Error{
-				Msg: fmt.Sprintf("Could not find cluster with ID. %s", clusterId),
+				Msg: fmt.Sprintf("The cluster can not be deleted. cluster status : %s", res.GetCluster().GetStatus()),
 			},
-		}, fmt.Errorf("Could not find cluster with ID. %s", clusterId)
+		}, fmt.Errorf("The cluster can not be deleted. cluster status : %s", res.GetCluster().GetStatus())
+	}
+
+	// Validation : check appgroup status
+	resAppGroups, err := appInfoClient.GetAppGroupsByClusterID(ctx, &pb.IDRequest{
+		Id: clusterId,
+	})
+	if err == nil && resAppGroups.Code == pb.Code_OK_UNSPECIFIED {
+		for _, resAppGroup := range resAppGroups.GetAppGroups() {
+			if resAppGroup.GetStatus() != pb.AppGroupStatus_APP_GROUP_DELETED {
+				return &pb.SimpleResponse{
+					Code: pb.Code_INVALID_ARGUMENT,
+					Error: &pb.Error{
+						Msg: fmt.Sprintf("Undeleted services remain. %s", resAppGroup.GetAppGroupId()),
+					},
+				}, fmt.Errorf("Undeleted services remain. %s", resAppGroup.GetAppGroupId())
+			}
+		}
 	}
 
 	nameSpace := "argo"
@@ -404,7 +401,7 @@ func (s *server) DeleteCluster(ctx context.Context, in *pb.IDRequest) (*pb.Simpl
 		"cluster_id=" + clusterId,
 	}
 
-	workflowName, err := argowfClient.SumbitWorkflowFromWftpl(ctx, workflow, nameSpace, parameters)
+	workflowId, err := argowfClient.SumbitWorkflowFromWftpl(ctx, workflow, nameSpace, parameters)
 	if err != nil {
 		log.Error("failed to submit argo workflow template. err : ", err)
 		return &pb.SimpleResponse{
@@ -414,9 +411,9 @@ func (s *server) DeleteCluster(ctx context.Context, in *pb.IDRequest) (*pb.Simpl
 			},
 		}, err
 	}
-	log.Debug("submited workflow name : ", workflowName)
+	log.Debug("submited workflow name : ", workflowId)
 
-	if err := s.updateClusterStatus(ctx, clusterId, pb.ClusterStatus_DELETING); err != nil {
+	if err := s.updateClusterStatusWithWorkflowId(ctx, clusterId, pb.ClusterStatus_DELETING, workflowId); err != nil {
 		log.Error("Failed to update cluster status to 'DELETING'")
 	}
 
@@ -520,14 +517,14 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 		}
 		log.Debug("workflowTemplate : ", workflowTemplate)
 
-		workflowName, err := argowfClient.SumbitWorkflowFromWftpl(ctx, workflowTemplate, "argo", parameters)
+		workflowId, err := argowfClient.SumbitWorkflowFromWftpl(ctx, workflowTemplate, "argo", parameters)
 		if err != nil {
 			log.Error("failed to submit argo workflow template. err : ", err)
 			continue
 		}
-		log.Debug("submited workflow name :", workflowName)
+		log.Debug("submited workflow name :", workflowId)
 
-		if err := s.updateAppGroupStatus(ctx, appGroupId, pb.AppGroupStatus_APP_GROUP_INSTALLING); err != nil {
+		if err := s.updateAppGroupStatusWithWorkflowId(ctx, appGroupId, pb.AppGroupStatus_APP_GROUP_INSTALLING, workflowId); err != nil {
 			log.Error("Failed to update appgroup status to 'APP_GROUP_INSTALLING'")
 		}
 
@@ -597,15 +594,15 @@ func (s *server) UninstallAppGroups(ctx context.Context, in *pb.UninstallAppGrou
 			"app_group_id=" + appGroupId,
 		}
 
-		workflowName, err := argowfClient.SumbitWorkflowFromWftpl(ctx, workflowTemplate, "argo", parameters)
+		workflowId, err := argowfClient.SumbitWorkflowFromWftpl(ctx, workflowTemplate, "argo", parameters)
 		if err != nil {
 			log.Error("failed to submit argo workflow template. err : ", err)
 			continue
 		}
-		log.Debug("submited workflow name :", workflowName)
+		log.Debug("submited workflow name :", workflowId)
 
 		resAppGroupIds = append(resAppGroupIds, appGroupId)
-		if err := s.updateAppGroupStatus(ctx, appGroupId, pb.AppGroupStatus_APP_GROUP_DELETING); err != nil {
+		if err := s.updateAppGroupStatusWithWorkflowId(ctx, appGroupId, pb.AppGroupStatus_APP_GROUP_DELETING, workflowId); err != nil {
 			log.Error("Failed to update appgroup status to 'APP_GROUP_DELETING'")
 		}
 	}
@@ -617,10 +614,11 @@ func (s *server) UninstallAppGroups(ctx context.Context, in *pb.UninstallAppGrou
 	}, nil
 }
 
-func (s *server) updateClusterStatus(ctx context.Context, clusterId string, status pb.ClusterStatus) error {
+func (s *server) updateClusterStatusWithWorkflowId(ctx context.Context, clusterId string, status pb.ClusterStatus, workflowId string) error {
 	_, err := clusterInfoClient.UpdateClusterStatus(ctx, &pb.UpdateClusterStatusRequest{
-		ClusterId: clusterId,
-		Status:    status,
+		ClusterId:  clusterId,
+		Status:     status,
+		WorkflowId: workflowId,
 	})
 	if err != nil {
 		log.Error("Failed to update cluster status err : ", err)
@@ -630,10 +628,11 @@ func (s *server) updateClusterStatus(ctx context.Context, clusterId string, stat
 	return nil
 }
 
-func (s *server) updateAppGroupStatus(ctx context.Context, appGroupId string, status pb.AppGroupStatus) error {
+func (s *server) updateAppGroupStatusWithWorkflowId(ctx context.Context, appGroupId string, status pb.AppGroupStatus, workflowId string) error {
 	_, err := appInfoClient.UpdateAppGroupStatus(ctx, &pb.UpdateAppGroupStatusRequest{
 		AppGroupId: appGroupId,
 		Status:     status,
+		WorkflowId: workflowId,
 	})
 	if err != nil {
 		log.Error("Failed to update appgroup status err : ", err)

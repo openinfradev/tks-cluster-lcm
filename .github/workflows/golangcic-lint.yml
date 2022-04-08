@@ -5,6 +5,7 @@ on:
       - v*
     branches:
       - main
+      - 'release**'
   pull_request:
 jobs:
   golangci:
