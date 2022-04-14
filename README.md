@@ -19,7 +19,7 @@ TKS는 Taco Kubernetes Service의 약자로, SK Telecom이 만든 GitOps기반�
 ### 서비스 구동 (For go developers)
 
 ```
-$ CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/tks-cluster-lcm ./cmd/server/
+$ go build -o bin/tks-cluster-lcm ./cmd/server/
 $ bin/tks-cluster-lcm -port 9110
 ```
 
@@ -27,7 +27,7 @@ $ bin/tks-cluster-lcm -port 9110
 ```
 $ docker pull sktcloud/tks-cluster-lcm
 $ docker run --name tks-cluster-lcm -p 9110:9110 -d \
-   sktcloud/tks-cluster-lcm server -port 9110
+   sktcloud/tks-cluster-lcm -port 9110
 ```
 
 ### gRPC API 호출 예제 (golang)
