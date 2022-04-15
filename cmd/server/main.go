@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"os"
 
 	"github.com/openinfradev/tks-common/pkg/argowf"
 	"github.com/openinfradev/tks-common/pkg/grpc_client"
@@ -38,7 +37,6 @@ var (
 	argoPort        int
 	revision        string
 	githubAccount   string
-	githubToken     string
 )
 
 func init() {
@@ -55,8 +53,6 @@ func init() {
 	flag.IntVar(&argoPort, "argo-port", 2746, "server port for argo-workflow-server")
 	flag.StringVar(&revision, "revision", "main", "revision for workflow parameter")
 	flag.StringVar(&githubAccount, "git-account", "tks-management", "git repository name for workflow parameter")
-
-	githubToken = os.Getenv("TOKEN")
 }
 
 func main() {
@@ -76,10 +72,6 @@ func main() {
 	log.Info("revision : ", revision)
 	log.Info("githubAccount : ", githubAccount)
 	log.Info("****************** ")
-
-	if githubToken = os.Getenv("TOKEN"); githubToken == "" {
-		log.Fatal("Specify githubToken to environment variable (TOKEN).")
-	}
 
 	// initialize clients
 	var err error
