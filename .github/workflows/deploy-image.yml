@@ -25,6 +25,8 @@ jobs:
       uses: docker/build-push-action@v2
       with:
         push: true
-        tags: sktcloud/tks-cluster-lcm:latest
+        tags: |
+          sktcloud/tks-cluster-lcm:${{ github.head_ref }}-${{ github.sha }}
+          sktcloud/tks-cluster-lcm:latest
         build-args: |
           PRV_GITHUB_TOKEN=${{ secrets.PRV_GITHUB_TOKEN }}

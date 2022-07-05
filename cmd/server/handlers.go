@@ -12,6 +12,7 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/google/uuid"
 
+	"github.com/openinfradev/tks-common/pkg/helper"
 	"github.com/openinfradev/tks-common/pkg/log"
 	pb "github.com/openinfradev/tks-proto/tks_pb"
 )
@@ -24,7 +25,7 @@ const MAX_SIZE_PER_AZ = 99
 
 func validateCreateClusterRequest(in *pb.CreateClusterRequest) (err error) {
 	if in.GetContractId() != "" {
-		if _, err := uuid.Parse(in.GetContractId()); err != nil {
+		if !helper.ValidateContractId(in.GetContractId()) {
 			return fmt.Errorf("invalid contract ID %s", in.GetContractId())
 		}
 		if _, err := uuid.Parse(in.GetCspId()); err != nil {
@@ -39,7 +40,7 @@ func validateCreateClusterRequest(in *pb.CreateClusterRequest) (err error) {
 }
 
 func validateDeleteClusterRequest(in *pb.IDRequest) (err error) {
-	if _, err := uuid.Parse(in.GetId()); err != nil {
+	if !helper.ValidateClusterId(in.GetId()) {
 		return fmt.Errorf("invalid cluster ID %s", in.GetId())
 	}
 	return nil
@@ -47,8 +48,7 @@ func validateDeleteClusterRequest(in *pb.IDRequest) (err error) {
 
 func validateInstallAppGroupsRequest(in *pb.InstallAppGroupsRequest) (err error) {
 	for _, appGroup := range in.GetAppGroups() {
-		if _, err := uuid.Parse(appGroup.GetClusterId()); err != nil {
-			log.Error("Failed to validate clusterId : ", err)
+		if !helper.ValidateClusterId(appGroup.GetClusterId()) {
 			return errors.New("Invalid clusterId")
 		}
 		if appGroup.GetAppGroupName() == "" {
@@ -63,8 +63,7 @@ func validateInstallAppGroupsRequest(in *pb.InstallAppGroupsRequest) (err error)
 
 func validateUninstallAppGroupsRequest(in *pb.UninstallAppGroupsRequest) (err error) {
 	for _, appGroupId := range in.GetAppGroupIds() {
-		if _, err := uuid.Parse(appGroupId); err != nil {
-			log.Error("Failed to validate appGroupId : ", err)
+		if !helper.ValidateApplicationGroupId(appGroupId) {
 			return errors.New("Invalid appGroupId")
 		}
 	}
