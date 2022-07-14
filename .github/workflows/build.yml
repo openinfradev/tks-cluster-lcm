@@ -1,9 +1,13 @@
-name: Create and publish a package
+name: Build image
 on:
   pull_request:
     branches:
       - main
-      - 'release**'     
+      - 'release**'
+env:
+  SERVICE: tks-cluster-lcm
+  TAG: ${{github.sha}}
+
 jobs:
   build-and-push-image:
     runs-on: ubuntu-latest
@@ -20,12 +24,10 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
     
-    - name: Build and push
+    - name: build image
       id: docker_build
       uses: docker/build-push-action@v2
       with:
         push: false
         tags: |
-          sktcloud/tks-cluster-lcm:${{ github.head_ref }}-${{ github.sha }}
-        build-args: |
-          PRV_GITHUB_TOKEN=${{ secrets.PRV_GITHUB_TOKEN }}
+          sktcloud/${{env.SERVICE}}:${{env.TAG}}
