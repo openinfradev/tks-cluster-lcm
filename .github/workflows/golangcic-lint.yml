@@ -1,20 +1,19 @@
 name: golangci-lint
 on:
   push:
-    tags:
-      - v*
     branches:
       - main
       - 'release**'
   pull_request:
+    branches:
+      - main
+      - 'release**'
 jobs:
   golangci:
     name: lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Configure git for private modules
-        run: git config --global url."https://x-access-token:${{ secrets.PRV_GITHUB_TOKEN }}@github.com/openinfradev".insteadOf "https://github.com/openinfradev"
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v2
         with:
