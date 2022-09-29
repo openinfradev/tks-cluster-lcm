@@ -189,6 +189,7 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 
 	contractId := in.GetContractId()
 	cspId := in.GetCspId()
+	templateName := in.GetTemplateName()
 
 	// get default contract if contractId is empty
 	if contractId == "" {
@@ -296,7 +297,7 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 		"contract_id=" + contractId,
 		"cluster_id=" + clusterId,
 		"site_name=" + clusterId,
-		"template_name=template-std",
+		"template_name=" + templateName,
 		"git_account=" + githubAccount,
 		"manifest_repo_url=" + manifestRepoUrl,
 		"revision=" + revision,
