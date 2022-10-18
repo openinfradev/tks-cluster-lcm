@@ -271,10 +271,12 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 	// create cluster info
 	clusterId := ""
 	resAddClusterInfo, err := clusterInfoClient.AddClusterInfo(ctx, &pb.AddClusterInfoRequest{
-		ContractId: contractId,
-		CspId:      cspId,
-		Name:       in.GetName(),
-		Conf:       clConf,
+		ContractId:  contractId,
+		CspId:       cspId,
+		Name:        in.GetName(),
+		Conf:        clConf,
+		Creator:     in.GetCreator(),
+		Description: in.GetDescription(),
 	})
 	if err != nil {
 		log.Error("Failed to add cluster info. err : ", err)

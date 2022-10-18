@@ -1032,6 +1032,8 @@ func randomCreateClusterRequest() *pb.CreateClusterRequest {
 			MachineType:     randomString("MACHINETYPE"),
 			MachineReplicas: 3,
 		},
+		Creator:     uuid.New().String(),
+		Description: randomString("DESCRIPTION"),
 	}
 }
 
@@ -1045,6 +1047,8 @@ func randomInstallAppGroupsRequest() *pb.InstallAppGroupsRequest {
 				ClusterId:     helper.GenerateClusterId(),
 				Status:        pb.AppGroupStatus_APP_GROUP_RUNNING,
 				ExternalLabel: randomString("EXTERNAL_LABEL"),
+				Creator:       uuid.New().String(),
+				Description:   randomString("DESCRIPTION"),
 			},
 		},
 	}
