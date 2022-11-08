@@ -39,6 +39,19 @@ func validateCreateClusterRequest(in *pb.CreateClusterRequest) (err error) {
 	return nil
 }
 
+func validateImportClusterRequest(in *pb.ImportClusterRequest) (err error) {
+	if in.GetContractId() != "" {
+		if !helper.ValidateContractId(in.GetContractId()) {
+			return fmt.Errorf("invalid contract ID %s", in.GetContractId())
+		}
+	}
+
+	if in.GetName() == "" {
+		return errors.New("Name must have value ")
+	}
+	return nil
+}
+
 func validateDeleteClusterRequest(in *pb.IDRequest) (err error) {
 	if !helper.ValidateClusterId(in.GetId()) {
 		return fmt.Errorf("invalid cluster ID %s", in.GetId())
@@ -325,6 +338,79 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 	}
 
 	log.Info("Successfully initiated user-cluster creation. clusterId: ", clusterId)
+	return &pb.IDResponse{
+		Code:  pb.Code_OK_UNSPECIFIED,
+		Error: nil,
+		Id:    clusterId,
+	}, nil
+}
+
+func (s *server) ImportCluster(ctx context.Context, in *pb.ImportClusterRequest) (*pb.IDResponse, error) {
+	log.Debug("Request 'ImportCluster' for cluster ID:", in.GetName())
+
+	if err := validateImportClusterRequest(in); err != nil {
+		return &pb.IDResponse{
+			Code: pb.Code_INVALID_ARGUMENT,
+			Error: &pb.Error{
+				Msg: fmt.Sprint(err),
+			},
+		}, err
+	}
+
+	contractId := in.GetContractId()
+	cspId := ""
+
+	// get default contract if contractId is empty
+	if contractId == "" {
+		contract, err := s.getDefaultContract(ctx)
+		if err != nil {
+			log.Error("Failed to get default contract. err : ", err)
+			return &pb.IDResponse{
+				Code: pb.Code_NOT_FOUND,
+				Error: &pb.Error{
+					Msg: "Failed to get default contract",
+				},
+			}, err
+		}
+		contractId = contract.GetContractId()
+
+	}
+
+	res, err := cspInfoClient.GetCSPIDsByContractID(ctx, &pb.IDRequest{Id: contractId})
+	if err != nil || len(res.Ids) == 0 {
+		log.Error("Failed to get csp ids by contractId err : ", err)
+		return &pb.IDResponse{
+			Code: pb.Code_NOT_FOUND,
+			Error: &pb.Error{
+				Msg: fmt.Sprintf("Invalid CSP Id %s", cspId),
+			},
+		}, err
+	}
+	cspId = res.Ids[0]
+
+	// create cluster info
+	clusterId := ""
+	resAddClusterInfo, err := clusterInfoClient.AddClusterInfo(ctx, &pb.AddClusterInfoRequest{
+		ContractId:  contractId,
+		CspId:       cspId,
+		Name:        in.GetName(),
+		Description: in.GetDescription(),
+		Conf:        &pb.ClusterConf{},
+		Creator:     in.GetCreator(),
+	})
+	if err != nil {
+		log.Error("Failed to add cluster info. err : ", err)
+		return &pb.IDResponse{
+			Code: pb.Code_INTERNAL,
+			Error: &pb.Error{
+				Msg: fmt.Sprintf("Failed to add cluster info. err : %s", err),
+			},
+		}, err
+	}
+	clusterId = resAddClusterInfo.Id
+	log.Info("Added cluster in tks-info. clusterId : ", clusterId)
+
+	log.Info("Successfully imported cluster. clusterId: ", clusterId)
 	return &pb.IDResponse{
 		Code:  pb.Code_OK_UNSPECIFIED,
 		Error: nil,
