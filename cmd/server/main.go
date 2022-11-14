@@ -36,7 +36,8 @@ var (
 	argoAddress     string
 	argoPort        int
 	revision        string
-	githubAccount   string
+	gitBaseUrl      string
+	gitAccount      string
 )
 
 func init() {
@@ -52,7 +53,8 @@ func init() {
 	flag.StringVar(&argoAddress, "argo-address", "192.168.70.10", "server address for argo-workflow-server")
 	flag.IntVar(&argoPort, "argo-port", 2746, "server port for argo-workflow-server")
 	flag.StringVar(&revision, "revision", "main", "revision for workflow parameter")
-	flag.StringVar(&githubAccount, "git-account", "tks-management", "git repository name for workflow parameter")
+	flag.StringVar(&gitBaseUrl, "git-base-url", "https://github.com/", "git base url")
+	flag.StringVar(&gitAccount, "git-account", "tks-management", "git repository name for workflow parameter")
 }
 
 func main() {
@@ -70,7 +72,8 @@ func main() {
 	log.Info("argoAddress : ", argoAddress)
 	log.Info("argoPort : ", argoPort)
 	log.Info("revision : ", revision)
-	log.Info("githubAccount : ", githubAccount)
+	log.Info("gitBaseUrl : ", gitBaseUrl)
+	log.Info("gitAccount : ", gitAccount)
 	log.Info("****************** ")
 
 	// initialize clients

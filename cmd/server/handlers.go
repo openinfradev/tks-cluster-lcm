@@ -306,14 +306,14 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 	// create usercluster
 	nameSpace := "argo"
 	workflow := "create-tks-usercluster"
-	manifestRepoUrl := "https://github.com/" + githubAccount + "/" + clusterId + "-manifests"
+	manifestRepoUrl := gitBaseUrl + "/" + gitAccount + "/" + clusterId + "-manifests"
 
 	parameters := []string{
 		"contract_id=" + contractId,
 		"cluster_id=" + clusterId,
 		"site_name=" + clusterId,
 		"template_name=" + templateName,
-		"git_account=" + githubAccount,
+		"git_account=" + gitAccount,
 		"manifest_repo_url=" + manifestRepoUrl,
 		"revision=" + revision,
 	}
@@ -576,11 +576,11 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 
 		// Call argo workflow template
 		workflowTemplate := ""
-		manifestRepoUrl := "https://github.com/" + githubAccount + "/" + clusterId + "-manifests"
+		manifestRepoUrl := gitBaseUrl + "/" + gitAccount + "/" + clusterId + "-manifests"
 		parameters := []string{
 			"site_name=" + clusterId,
 			"cluster_id=" + clusterId,
-			"github_account=" + githubAccount,
+			"github_account=" + gitAccount,
 			"manifest_repo_url=" + manifestRepoUrl,
 			"revision=" + revision,
 			"app_group_id=" + appGroupId,
@@ -676,7 +676,7 @@ func (s *server) UninstallAppGroups(ctx context.Context, in *pb.UninstallAppGrou
 
 		parameters := []string{
 			"app_group=" + appGroupName,
-			"github_account=" + githubAccount,
+			"github_account=" + gitAccount,
 			"tks_info_host=tks-info.tks.svc",
 			"cluster_id=" + clusterId,
 			"app_group_id=" + appGroupId,
