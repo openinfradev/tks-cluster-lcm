@@ -420,8 +420,9 @@ func (s *server) ImportCluster(ctx context.Context, in *pb.ImportClusterRequest)
 	nameSpace := "argo"
 	workflow := "import-tks-usercluster"
 	manifestRepoUrl := gitBaseUrl + "/" + gitAccount + "/" + clusterId + "-manifests"
-
 	kubeconfigBase64 := base64.StdEncoding.EncodeToString([]byte(in.GetKubeconfig()))
+	gitBaseUrlTrimed := strings.Replace(gitBaseUrl, "http://", "", 1)
+	gitBaseUrlTrimed = strings.Replace(gitBaseUrl, "https://", "", 1)
 
 	parameters := []string{
 		"contract_id=" + contractId,
@@ -430,6 +431,7 @@ func (s *server) ImportCluster(ctx context.Context, in *pb.ImportClusterRequest)
 		"site_name=" + clusterId,
 		"template_name=" + templateName,
 		"git_account=" + gitAccount,
+		"git_base_url=" + gitBaseUrlTrimed,
 		"manifest_repo_url=" + manifestRepoUrl,
 		"revision=" + revision,
 	}

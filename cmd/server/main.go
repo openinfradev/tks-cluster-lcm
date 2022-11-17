@@ -53,7 +53,7 @@ func init() {
 	flag.StringVar(&argoAddress, "argo-address", "192.168.70.10", "server address for argo-workflow-server")
 	flag.IntVar(&argoPort, "argo-port", 2746, "server port for argo-workflow-server")
 	flag.StringVar(&revision, "revision", "main", "revision for workflow parameter")
-	flag.StringVar(&gitBaseUrl, "git-base-url", "https://github.com/", "git base url")
+	flag.StringVar(&gitBaseUrl, "git-base-url", "https://github.com", "git base url")
 	flag.StringVar(&gitAccount, "git-account", "tks-management", "git repository name for workflow parameter")
 }
 
