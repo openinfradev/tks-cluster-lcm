@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"os"
@@ -45,10 +46,13 @@ func validateImportClusterRequest(in *pb.ImportClusterRequest) (err error) {
 			return fmt.Errorf("invalid contract ID %s", in.GetContractId())
 		}
 	}
-
 	if in.GetName() == "" {
 		return errors.New("Name must have value ")
 	}
+	if string(in.GetKubeconfig()) == "" {
+		return errors.New("Kubeconfig must have value ")
+	}
+
 	return nil
 }
 
@@ -346,7 +350,7 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 }
 
 func (s *server) ImportCluster(ctx context.Context, in *pb.ImportClusterRequest) (*pb.IDResponse, error) {
-	log.Debug("Request 'ImportCluster' for cluster ID:", in.GetName())
+	log.Debug("Request 'ImportCluster' for cluster Name:", in.GetName())
 
 	if err := validateImportClusterRequest(in); err != nil {
 		return &pb.IDResponse{
@@ -388,6 +392,8 @@ func (s *server) ImportCluster(ctx context.Context, in *pb.ImportClusterRequest)
 	}
 	cspId = res.Ids[0]
 
+	templateName := in.GetTemplateName()
+
 	// create cluster info
 	clusterId := ""
 	resAddClusterInfo, err := clusterInfoClient.AddClusterInfo(ctx, &pb.AddClusterInfoRequest{
@@ -410,7 +416,48 @@ func (s *server) ImportCluster(ctx context.Context, in *pb.ImportClusterRequest)
 	clusterId = resAddClusterInfo.Id
 	log.Info("Added cluster in tks-info. clusterId : ", clusterId)
 
-	log.Info("Successfully imported cluster. clusterId: ", clusterId)
+	// import usercluster
+	nameSpace := "argo"
+	workflow := "import-tks-usercluster"
+	manifestRepoUrl := gitBaseUrl + "/" + gitAccount + "/" + clusterId + "-manifests"
+
+	kubeconfigBase64 := base64.StdEncoding.EncodeToString([]byte(in.GetKubeconfig()))
+	gitBaseUrlTrimed := strings.Replace( gitBaseUrl, "http://", "", 1 )
+	gitBaseUrlTrimed = strings.Replace( gitBaseUrl, "https://", "", 1 )
+
+	parameters := []string{
+		"contract_id=" + contractId,
+		"cluster_id=" + clusterId,
+		"kubeconfig=" + kubeconfigBase64,
+		"site_name=" + clusterId,
+		"template_name=" + templateName,
+		"git_account=" + gitAccount,
+		"git_base_url=" + gitBaseUrlTrimed,
+		"manifest_repo_url=" + manifestRepoUrl,
+		"revision=" + revision,
+	}
+
+	log.Info("Submitting workflow: ", workflow)
+
+	workflowId, err := argowfClient.SumbitWorkflowFromWftpl(ctx, workflow, nameSpace, parameters)
+	if err != nil {
+		log.Error("failed to submit argo workflow template. err : ", err)
+		return &pb.IDResponse{
+			Code: pb.Code_INTERNAL,
+			Error: &pb.Error{
+				Msg: fmt.Sprintf("Failed to call argo workflow : %s", err),
+			},
+		}, err
+	}
+	log.Info("Successfully submited workflow: ", workflowId)
+
+	// update status : INSTALLING
+	if err := s.updateClusterStatusWithWorkflowId(ctx, clusterId, pb.ClusterStatus_INSTALLING, workflowId); err != nil {
+		log.Error("Failed to update cluster status to 'INSTALLING'")
+	}
+
+	log.Info("Successfully initiated user-cluster registration. clusterId: ", clusterId)
+
 	return &pb.IDResponse{
 		Code:  pb.Code_OK_UNSPECIFIED,
 		Error: nil,
