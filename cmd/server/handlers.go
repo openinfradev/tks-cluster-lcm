@@ -421,8 +421,14 @@ func (s *server) ImportCluster(ctx context.Context, in *pb.ImportClusterRequest)
 	workflow := "import-tks-usercluster"
 	manifestRepoUrl := gitBaseUrl + "/" + gitAccount + "/" + clusterId + "-manifests"
 	kubeconfigBase64 := base64.StdEncoding.EncodeToString([]byte(in.GetKubeconfig()))
-	gitBaseUrlTrimed := strings.Replace(gitBaseUrl, "http://", "", 1)
-	gitBaseUrlTrimed = strings.Replace(gitBaseUrl, "https://", "", 1)
+	gitBaseUrlTrimed := gitBaseUrl
+
+	if strings.Contains(gitBaseUrl, "http://") {
+		gitBaseUrlTrimed = strings.Replace(gitBaseUrl, "http://", "", 1)
+	} else if strings.Contains(gitBaseUrl, "https://") {
+		gitBaseUrlTrimed =
+			strings.Replace(gitBaseUrl, "https://", "", 1)
+	}
 
 	parameters := []string{
 		"contract_id=" + contractId,
