@@ -796,6 +796,8 @@ github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417/go.m
 github.com/opencontainers/selinux v1.10.0/go.mod h1:2i0OySw99QjzBBQByd1Gr9gSjvuho1lHsJxIJ3gGbJI=
 github.com/openinfradev/tks-common v0.0.0-20220901041147-f4270edefbb6 h1:4bGzl+LxPgHSuq1ah8xPb0TPztXd/0yQp0MNeyjfwV4=
 github.com/openinfradev/tks-common v0.0.0-20220901041147-f4270edefbb6/go.mod h1:6TpIXT+j/HAb6LCY7TkPLpVqKKODiopNoLhQArO8bms=
+github.com/openinfradev/tks-common v0.0.0-20221121042940-4356d48a950b h1:fdGyeug5a0qgAC6pn5ngIW6wbH3disF3U6/Gvyd9z1A=
+github.com/openinfradev/tks-common v0.0.0-20221121042940-4356d48a950b/go.mod h1:6TpIXT+j/HAb6LCY7TkPLpVqKKODiopNoLhQArO8bms=
 github.com/openinfradev/tks-proto v0.0.6-0.20220831015809-fad377174017/go.mod h1:IIxiwEZVfqLXm/O4KGiD0q/ELlyKxXx44TCM5ZWhpJs=
 github.com/openinfradev/tks-proto v0.0.6-0.20221018052004-85d1b297f865 h1:YGJloolf98NRDFeiwdm3qrk+8FmzDqROgoOg8D+20Cw=
 github.com/openinfradev/tks-proto v0.0.6-0.20221018052004-85d1b297f865/go.mod h1:IIxiwEZVfqLXm/O4KGiD0q/ELlyKxXx44TCM5ZWhpJs=
