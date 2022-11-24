@@ -83,7 +83,7 @@ func TestCreateCluster(t *testing.T) {
 							Id:    createdClusterId,
 						}, nil)
 
-				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
+				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
 					Return(randomString("workflowName"), nil)
 
 				mockClusterInfoClient.EXPECT().UpdateClusterStatus(gomock.Any(), gomock.Any()).Times(1).
@@ -133,7 +133,7 @@ func TestCreateCluster(t *testing.T) {
 							Id:    createdClusterId,
 						}, nil)
 
-				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
+				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
 					Return(randomString("workflowName"), nil)
 
 				mockClusterInfoClient.EXPECT().UpdateClusterStatus(gomock.Any(), gomock.Any()).Times(1).
@@ -330,7 +330,7 @@ func TestCreateCluster(t *testing.T) {
 							Id:    createdClusterId,
 						}, nil)
 
-				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
+				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
 					Return("", errors.New("FAILED_TO_CALL_WORKFLOW"))
 			},
 			checkResponse: func(req *pb.CreateClusterRequest, res *pb.IDResponse, err error) {
@@ -411,7 +411,7 @@ func TestDeleteCluster(t *testing.T) {
 							Error: nil,
 						}, nil)
 
-				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
+				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
 					Return(randomString("workflowName"), nil)
 			},
 			checkResponse: func(req *pb.IDRequest, res *pb.SimpleResponse, err error) {
@@ -492,7 +492,7 @@ func TestDeleteCluster(t *testing.T) {
 							Error:     nil,
 							AppGroups: []*pb.AppGroup{},
 						}, nil)
-				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
+				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
 					Return(randomString("workflowName"), errors.New("FAILED_TO_CALL_WORKFLOW"))
 			},
 			checkResponse: func(req *pb.IDRequest, res *pb.SimpleResponse, err error) {
@@ -624,7 +624,7 @@ func TestInstallAppGroups(t *testing.T) {
 							Id:    createdAppGroupId,
 						}, nil)
 
-				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), "tks-lma-federation", gomock.Any(), gomock.Any()).Times(1).
+				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl("tks-lma-federation", gomock.Any(), gomock.Any()).Times(1).
 					Return(randomString("workflowName"), nil)
 			},
 			checkResponse: func(req *pb.InstallAppGroupsRequest, res *pb.IDsResponse, err error) {
@@ -678,7 +678,7 @@ func TestInstallAppGroups(t *testing.T) {
 							},
 						}, nil)
 
-				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), "tks-lma-federation", gomock.Any(), gomock.Any()).Times(1).
+				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl("tks-lma-federation", gomock.Any(), gomock.Any()).Times(1).
 					Return(randomString("workflowName"), nil)
 
 				mockAppInfoClient.EXPECT().UpdateAppGroupStatus(gomock.Any(), gomock.Any()).Times(1).
@@ -800,7 +800,7 @@ func TestInstallAppGroups(t *testing.T) {
 				mockAppInfoClient.EXPECT().UpdateAppGroupStatus(gomock.Any(), gomock.Any()).Times(1).
 					Return(&pb.SimpleResponse{Code: pb.Code_OK_UNSPECIFIED, Error: nil}, nil)
 
-				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), "tks-service-mesh", gomock.Any(), gomock.Any()).Times(1).
+				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl("tks-service-mesh", gomock.Any(), gomock.Any()).Times(1).
 					Return(randomString("workflowName"), nil)
 			},
 			checkResponse: func(req *pb.InstallAppGroupsRequest, res *pb.IDsResponse, err error) {
@@ -824,7 +824,7 @@ func TestInstallAppGroups(t *testing.T) {
 				mockAppInfoClient.EXPECT().GetAppGroupsByClusterID(gomock.Any(), gomock.Any()).Times(1).
 					Return(&pb.GetAppGroupsResponse{Code: pb.Code_OK_UNSPECIFIED}, errors.New("NOT_EXISTED_APPGROUPS"))
 
-				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
+				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
 					Return("", errors.New("FAILED_TO_CALL_WORKFLOW"))
 			},
 			checkResponse: func(req *pb.InstallAppGroupsRequest, res *pb.IDsResponse, err error) {
@@ -886,7 +886,7 @@ func TestUninstallAppGroups(t *testing.T) {
 				mockAppInfoClient.EXPECT().UpdateAppGroupStatus(gomock.Any(), gomock.Any()).Times(1).
 					Return(&pb.SimpleResponse{Code: pb.Code_OK_UNSPECIFIED, Error: nil}, nil)
 
-				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
+				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
 					Return(randomString("workflowName"), nil)
 			},
 			checkResponse: func(req *pb.UninstallAppGroupsRequest, res *pb.IDsResponse, err error) {
@@ -941,7 +941,7 @@ func TestUninstallAppGroups(t *testing.T) {
 							AppGroup: installAppGroupsRequest.GetAppGroups()[0],
 						}, nil)
 
-				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
+				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
 					Return("", errors.New("FAILED_TO_CALL_WORKFLOW"))
 			},
 			checkResponse: func(req *pb.UninstallAppGroupsRequest, res *pb.IDsResponse, err error) {
@@ -974,7 +974,7 @@ func TestUninstallAppGroups(t *testing.T) {
 				mockAppInfoClient.EXPECT().UpdateAppGroupStatus(gomock.Any(), gomock.Any()).Times(1).
 					Return(&pb.SimpleResponse{Code: pb.Code_OK_UNSPECIFIED, Error: nil}, nil)
 
-				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
+				mockArgoClient.EXPECT().SumbitWorkflowFromWftpl(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
 					Return(randomString("workflowName"), nil)
 			},
 			checkResponse: func(req *pb.UninstallAppGroupsRequest, res *pb.IDsResponse, err error) {
