@@ -78,7 +78,7 @@ func main() {
 
 	// initialize clients
 	var err error
-	argowfClient, err = argowf.New(argoAddress, argoPort)
+	argowfClient, err = argowf.New(argoAddress, argoPort, false, "")
 	if err != nil {
 		log.Fatal("failed to create argowf client : ", err)
 	}
