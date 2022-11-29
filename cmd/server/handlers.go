@@ -13,6 +13,7 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/google/uuid"
 
+	"github.com/openinfradev/tks-common/pkg/argowf"
 	"github.com/openinfradev/tks-common/pkg/helper"
 	"github.com/openinfradev/tks-common/pkg/log"
 	pb "github.com/openinfradev/tks-proto/tks_pb"
@@ -312,7 +313,8 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 	workflow := "create-tks-usercluster"
 	manifestRepoUrl := gitBaseUrl + "/" + gitAccount + "/" + clusterId + "-manifests"
 
-	parameters := []string{
+	opts := argowf.SubmitOptions{}
+	opts.Parameters = []string{
 		"contract_id=" + contractId,
 		"cluster_id=" + clusterId,
 		"site_name=" + clusterId,
@@ -324,7 +326,7 @@ func (s *server) CreateCluster(ctx context.Context, in *pb.CreateClusterRequest)
 
 	log.Info("Submitting workflow: ", workflow)
 
-	workflowId, err := argowfClient.SumbitWorkflowFromWftpl(ctx, workflow, nameSpace, parameters)
+	workflowId, err := argowfClient.SumbitWorkflowFromWftpl(workflow, nameSpace, opts)
 	if err != nil {
 		log.Error("failed to submit argo workflow template. err : ", err)
 		return &pb.IDResponse{
@@ -430,7 +432,8 @@ func (s *server) ImportCluster(ctx context.Context, in *pb.ImportClusterRequest)
 			strings.Replace(gitBaseUrl, "https://", "", 1)
 	}
 
-	parameters := []string{
+	opts := argowf.SubmitOptions{}
+	opts.Parameters = []string{
 		"contract_id=" + contractId,
 		"cluster_id=" + clusterId,
 		"kubeconfig=" + kubeconfigBase64,
@@ -444,7 +447,7 @@ func (s *server) ImportCluster(ctx context.Context, in *pb.ImportClusterRequest)
 
 	log.Info("Submitting workflow: ", workflow)
 
-	workflowId, err := argowfClient.SumbitWorkflowFromWftpl(ctx, workflow, nameSpace, parameters)
+	workflowId, err := argowfClient.SumbitWorkflowFromWftpl(workflow, nameSpace, opts)
 	if err != nil {
 		log.Error("failed to submit argo workflow template. err : ", err)
 		return &pb.IDResponse{
@@ -535,13 +538,16 @@ func (s *server) DeleteCluster(ctx context.Context, in *pb.IDRequest) (*pb.Simpl
 
 	nameSpace := "argo"
 	workflow := "tks-remove-usercluster"
-	parameters := []string{
+
+	opts := argowf.SubmitOptions{}
+	opts.Parameters = []string{
 		"app_group=tks-cluster-aws",
 		"tks_info_host=tks-info.tks.svc",
 		"cluster_id=" + clusterId,
 	}
 
-	workflowId, err := argowfClient.SumbitWorkflowFromWftpl(ctx, workflow, nameSpace, parameters)
+	log.Info("Submitting workflow: ", workflow)
+	workflowId, err := argowfClient.SumbitWorkflowFromWftpl(workflow, nameSpace, opts)
 	if err != nil {
 		log.Error("failed to submit argo workflow template. err : ", err)
 		return &pb.SimpleResponse{
@@ -629,7 +635,8 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 		// Call argo workflow template
 		workflowTemplate := ""
 		manifestRepoUrl := gitBaseUrl + "/" + gitAccount + "/" + clusterId + "-manifests"
-		parameters := []string{
+		opts := argowf.SubmitOptions{}
+		opts.Parameters = []string{
 			"site_name=" + clusterId,
 			"cluster_id=" + clusterId,
 			"github_account=" + gitAccount,
@@ -642,11 +649,11 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 		switch appGroup.GetType() {
 		case pb.AppGroupType_LMA:
 			workflowTemplate = "tks-lma-federation"
-			parameters = append(parameters, "logging_component=loki")
+			opts.Parameters = append(opts.Parameters, "logging_component=loki")
 
 		case pb.AppGroupType_LMA_EFK:
 			workflowTemplate = "tks-lma-federation"
-			parameters = append(parameters, "logging_component=efk")
+			opts.Parameters = append(opts.Parameters, "logging_component=efk")
 
 		case pb.AppGroupType_SERVICE_MESH:
 			workflowTemplate = "tks-service-mesh"
@@ -655,9 +662,9 @@ func (s *server) InstallAppGroups(ctx context.Context, in *pb.InstallAppGroupsRe
 			log.Error("invalid appGroup type ", appGroup.GetType())
 			continue
 		}
-		log.Debug("workflowTemplate : ", workflowTemplate)
 
-		workflowId, err := argowfClient.SumbitWorkflowFromWftpl(ctx, workflowTemplate, "argo", parameters)
+		log.Info("Submitting workflow: ", workflowTemplate)
+		workflowId, err := argowfClient.SumbitWorkflowFromWftpl(workflowTemplate, "argo", opts)
 		if err != nil {
 			log.Error("failed to submit argo workflow template. err : ", err)
 			continue
@@ -726,7 +733,8 @@ func (s *server) UninstallAppGroups(ctx context.Context, in *pb.UninstallAppGrou
 			continue
 		}
 
-		parameters := []string{
+		opts := argowf.SubmitOptions{}
+		opts.Parameters = []string{
 			"app_group=" + appGroupName,
 			"github_account=" + gitAccount,
 			"tks_info_host=tks-info.tks.svc",
@@ -734,7 +742,7 @@ func (s *server) UninstallAppGroups(ctx context.Context, in *pb.UninstallAppGrou
 			"app_group_id=" + appGroupId,
 		}
 
-		workflowId, err := argowfClient.SumbitWorkflowFromWftpl(ctx, workflowTemplate, "argo", parameters)
+		workflowId, err := argowfClient.SumbitWorkflowFromWftpl(workflowTemplate, "argo", opts)
 		if err != nil {
 			log.Error("failed to submit argo workflow template. err : ", err)
 			continue
