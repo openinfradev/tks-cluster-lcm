@@ -94,7 +94,7 @@ func constructClusterConf(rawConf *pb.ClusterRawConf) (clusterConf *pb.ClusterCo
 		region = rawConf.Region
 	}
 
-	numOfAz := 3
+	numOfAz := 1
 	if rawConf != nil && rawConf.NumOfAz != 0 {
 		numOfAz = int(rawConf.NumOfAz)
 
